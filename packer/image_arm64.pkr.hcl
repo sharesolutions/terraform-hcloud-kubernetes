@@ -30,6 +30,8 @@ source "hcloud" "talos_arm64_image" {
   server_type  = var.server_type
   ssh_username = "root"
 
+  temporary_key_pair_type = "ed25519"
+
   snapshot_name = "Talos Linux ARM64 for ${var.cluster_name}"
   snapshot_labels = {
     cluster            = var.cluster_name,
