@@ -62,7 +62,8 @@ locals {
       )],
       count           = np.count,
       subnet          = np.subnet,
-      placement_group = np.placement_group
+      placement_group = np.placement_group,
+      config_patches  = np.config_patches
     }
   ]
 

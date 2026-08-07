@@ -376,6 +376,7 @@ variable "worker_nodepools" {
     rdns_ipv4       = optional(string)
     rdns_ipv6       = optional(string)
     placement_group = optional(bool, true)
+    config_patches  = optional(any, [])
   }))
   default     = []
   description = "Defines configuration settings for Worker node pools within the cluster."
