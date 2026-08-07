@@ -9,12 +9,12 @@ terraform {
 
     hcloud = {
       source  = "hetznercloud/hcloud"
-      version = "1.62.0"
+      version = "1.68.0"
     }
 
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 3.1.0"
+      version = "~> 3.2.0"
     }
 
     http = {

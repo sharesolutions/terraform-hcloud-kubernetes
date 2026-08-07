@@ -71,7 +71,8 @@ Provision a highly available and secure Kubernetes cluster on Hetzner Cloud, def
 
 * **Immutable Infrastructure:** Uses Talos Linux to deliver a fully declarative, immutable Kubernetes cluster.
 * **Multi-Architecture:** Supports deployment on both **AMD64** and **ARM64** instances, with automated image builds.
-* **High Availability:** Provides high availability across control plane and worker components for reliable operation.
+* **Bare Metal Server:** Provides fully managed integration of **Hetzner Bare Metal Servers** into the cluster.
+* **High Availability:** High availability across control plane and worker components for reliable operation.
 * **Autoscaling:** Supports automatic scaling of both **Nodes** and **Pods** to seamlessly handle dynamic workloads.
 * **Quick Start:** Optional **Gateway API**, **Cert Manager**, and **Longhorn** integrations for faster app deployment.
 * **Dual-Stack:** Load balancers provide native **IPv4** and **IPv6** connectivity with **PROXY Protocol** support.
@@ -82,12 +83,12 @@ Provision a highly available and secure Kubernetes cluster on Hetzner Cloud, def
 ### 📦 Components
 This project bundles essential Kubernetes components, preconfigured for seamless operation on Hetzner Cloud:
 - <summary>
-    <img align="center" alt="Talos Cloud Controller Manager" src="https://www.google.com/s2/favicons?domain=talos.dev&sz=32" width="16">
+    <img align="center" alt="Talos Cloud Controller Manager" src="https://www.google.com/s2/favicons?domain=https://docs.siderolabs.com&sz=32" width="16">
     <b><a href="https://github.com/siderolabs/talos-cloud-controller-manager">Talos Cloud Controller Manager (CCM)</a></b>
   </summary>
-  Manages node resources by updating with cloud metadata, handling lifecycle deletions, and automatically approving node CSRs.
+  Automatically approves kubelet server Certificate Signing Requests (CSRs) for Talos nodes.
 - <summary>
-    <img align="center" alt="Talos Backup" src="https://www.google.com/s2/favicons?domain=talos.dev&sz=32" width="16">
+    <img align="center" alt="Talos Backup" src="https://www.google.com/s2/favicons?domain=https://docs.siderolabs.com&sz=32" width="16">
     <b><a href="https://github.com/siderolabs/talos-backup">Talos Backup</a></b>
   </summary>
   Automates etcd snapshots and S3 storage for backup in Talos Linux-based Kubernetes clusters.
@@ -252,6 +253,68 @@ tofu destroy
 <!-- Advanced Configuration -->
 ## ⚙️ Advanced Configuration
 
+<!-- Bare Metal Server -->
+<details>
+<summary><b>Bare Metal Server</b></summary>
+
+Bare metal worker nodes can be added through Hetzner Robot. The module enables rescue mode, installs Talos, attaches the servers to a vSwitch, and applies the Talos worker configuration.
+
+Example `kubernetes.tf` snippet:
+```hcl
+hcloud_robot_user     = "<robot-user>"
+hcloud_robot_password = "<robot-password>"
+
+bare_metal_nodepools = [
+  {
+    name = "bare-metal"
+    servers = [
+      { number = 1111111, private_ipv4 = "10.0.88.2" },
+      { number = 2222222, private_ipv4 = "10.0.88.3" }
+    ]
+  }
+]
+```
+
+Example with an existing vSwitch and an explicit install disk:
+```hcl
+hcloud_vswitch_id = 12345
+
+bare_metal_nodepools = [
+  {
+    name         = "bare-metal"
+    architecture = "amd64"
+    servers = [
+      { number = 1234567, private_ipv4 = "10.0.88.2", install_disk = "ata-Samsung_SSD_870_ABC123" }
+    ]
+  }
+]
+```
+
+#### vSwitch Network
+
+The module creates the vSwitch and connects it to the Hetzner Cloud Network.
+
+Each server needs a unique `private_ipv4` from the vSwitch subnet. For the default `10.0.0.0/16` network, the bare metal subnet can also be calculated with:
+```sh
+echo 'cidrsubnet("10.0.0.0/16", 9, 176)' | tofu console
+"10.0.88.0/25"
+```
+
+When bare metal servers are enabled for the first time, Cilium might need to be restarted to pick up the changed routing mode:
+```sh
+kubectl -n kube-system rollout restart ds/cilium ds/cilium-envoy
+kubectl -n kube-system rollout restart deploy/cilium-operator
+```
+
+#### Install Disk
+
+If `install_disk` is omitted, the module automatically selects the first eligible non-removable disk. If set, `install_disk` must be a disk ID from `/dev/disk/by-id`.
+
+> [!WARNING]
+> Installing Talos is destructive. The selected install disk is discarded before Talos is written, and all other eligible install disks are wiped. Existing data on those disks is lost.
+
+</details>
+
 <!-- Cluster Access -->
 <details>
 <summary><b>Cluster Access</b></summary>
@@ -339,6 +402,8 @@ The Cluster Autoscaler dynamically adjusts the number of nodes in a Kubernetes c
 Example `kubernetes.tf` snippet:
 ```hcl
 # Configuration for cluster autoscaler node pools
+cluster_autoscaler_enabled = true
+
 cluster_autoscaler_nodepools = [
   {
     name     = "autoscaler"
@@ -375,6 +440,72 @@ cluster_autoscaler_discovery_enabled = true
 Please note that errors may occur if a node pool has been scaled down recently, as Talos caches absent nodes for up to [30 minutes](https://www.talos.dev/latest/introduction/troubleshooting/#removed-members-are-still-present). You can pause automatic scaling by stopping the Cluster Autoscaler pods:
 ```sh
 kubectl -n kube-system scale deployment cluster-autoscaler-hetzner-cluster-autoscaler --replicas=0
+```
+
+</details>
+
+
+<!-- Components -->
+<details>
+<summary><b>Components</b></summary>
+
+The module installs a curated set of Kubernetes components through Talos manifests and reconciles them during the normal module lifecycle.
+
+#### Core Components
+
+| Component                                | Variable                 | Default |
+| ---------------------------------------- | ------------------------ | ------- |
+| Cilium Container Network Interface (CNI) | `cilium_enabled`         | `true`  |
+| Hcloud Cloud Controller Manager (CCM)    | `hcloud_ccm_enabled`     | `true`  |
+| Hcloud Container Storage Interface (CSI) | `hcloud_csi_enabled`     | `true`  |
+| Metrics Server                           | `metrics_server_enabled` | `true`  |
+| Talos Backup                             | `talos_backup_enabled`   | `true`  |
+| Talos Cloud Controller Manager (CCM)     | `talos_ccm_enabled`      | `true`  |
+
+
+#### Optional Components
+
+| Component                    | Variable                               | Default |
+| ---------------------------- | -------------------------------------- | ------- |
+| Cert Manager                 | `cert_manager_enabled`                 | `false` |
+| Cert Manager Hetzner Webhook | `cert_manager_webhook_hetzner_enabled` | `false` |
+| Cilium Gateway API           | `cilium_gateway_api_enabled`           | `false` |
+| Cluster Autoscaler           | `cluster_autoscaler_enabled`           | `false` |
+| Ingress NGINX (deprecated)   | `ingress_nginx_enabled`                | `false` |
+| Longhorn                     | `longhorn_enabled`                     | `false` |
+
+
+#### Custom Resource Definitions
+
+| Component                | Variable                           | Default |
+| ------------------------ | ---------------------------------- | ------- |
+| Gateway API CRDs         | `gateway_api_crds_enabled`         | `true`  |
+| Prometheus Operator CRDs | `prometheus_operator_crds_enabled` | `true`  |
+
+
+#### Additional Manifests
+
+Extra manifests can be added alongside the built-in components:
+
+```hcl
+talos_extra_remote_manifests = [
+  "https://example.com/extra-remote-manifest.yaml"
+]
+
+talos_extra_inline_manifests = [
+  {
+    name = "test-manifest"
+    contents = <<-EOF
+      ---
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: test-secret
+      data:
+        secret: dGVzdA==
+    EOF
+  }
+]
 ```
 
 </details>
@@ -779,6 +910,8 @@ With the default `10.0.0.0/16` network CIDR (`network_ipv4_cidr`), the following
 - **Pod Subnet Size**: `/24` (Max. 256 Pods per Node)
 - **Pod Subnets**: `10.0.128.0/17` (Max. 128 Nodes, each with `/24`)
 
+The shared worker subnet and the shared Cluster Autoscaler subnet are created by default. Worker and Cluster Autoscaler node pools use their shared subnets unless they pin a legacy node subnet with `subnet = "10.0.65.0/25"`. Treat pinned subnet values as immutable after the node pool has been created.
+
 Please consider the following Hetzner Cloud limits:
 - Up to **100 servers** can be attached to a network.
 - Up to **100 routes** can be created per network.
@@ -787,7 +920,7 @@ Please consider the following Hetzner Cloud limits:
 
 A `/16` Network CIDR is sufficient to fully utilize Hetzner Cloud's scaling capabilities. It supports:
 - Up to 100 nodes, each with its own `/24` Pod subnet route.
-- Configuration of up to 50 nodepools, one nodepool per subnet, each with at least one placement group.
+- Configuration of up to 50 nodepools, each with at least one placement group.
 
 
 Here is a table with more example calculations:
@@ -934,90 +1067,6 @@ talos_backup_schedule = "0 * * * *"
 ```
 
 To recover from a snapshot, please refer to the Talos Disaster Recovery section in the [Documentation](https://www.talos.dev/latest/advanced/disaster-recovery/#recovery).
-</details>
-
-
-<!-- Talos Bootstrap Manifests -->
-<details>
-<summary><b>Talos Bootstrap Manifests</b></summary>
-
-### Component Deployment Control
-
-During cluster provisioning, each component manifest is applied using Talos’s bootstrap manifests feature. Components are upgraded as part of the normal lifecycle of this module.
-You can enable or disable component deployment using the variables below:
-
-```hcl
-# Core Components (enabled by default)
-cilium_enabled                     = true
-talos_backup_s3_enabled            = true
-talos_ccm_enabled                  = true
-talos_coredns_enabled              = true
-hcloud_ccm_enabled                 = true
-hcloud_csi_enabled                 = true
-metrics_server_enabled             = true
-prometheus_operator_crds_enabled   = true
-
-# Additional Components (disabled by default)
-cert_manager_enabled                 = true
-cert_manager_webhook_hetzner_enabled = true
-ingress_nginx_enabled                = true
-longhorn_enabled                     = true
-
-# Enable etcd backup by defining one of these variables:
-talos_backup_s3_endpoint    = "https://..."
-talos_backup_s3_hcloud_url  = "https://<bucket>.<location>.your-objectstorage.com"
-
-# Cluster Autoscaler: Enabled when node pools are defined
-cluster_autoscaler_nodepools = [
-  {
-    name     = "autoscaler"
-    type     = "cpx22"
-    location = "nbg1"
-    min      = 0
-    max      = 6
-    labels   = {
-      "autoscaler-node" = "true"
-    }
-    taints   = [
-      "autoscaler-node=true:NoExecute"
-    ]
-  }
-]
-```
-
-> **Note:** Disabling a component **does not delete** its existing resources.
-> This is documented in the [Talos documentation](https://www.talos.dev/latest/kubernetes-guides/upgrading-kubernetes/#automated-kubernetes-upgrade).
-> You must remove deployed resources manually after disabling a component in the manifests.
-
----
-
-### Adding Additional Manifests
-
-Besides the default components, you can add extra bootstrap manifests as follows:
-
-```hcl
-# Extra remote manifests (URLs fetched at apply time)
-talos_extra_remote_manifests = [
-  "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml"
-]
-
-# Extra inline manifests (defined directly)
-talos_extra_inline_manifests = [
-  {
-    name = "test-manifest"
-    contents = <<-EOF
-      ---
-      apiVersion: v1
-      kind: Secret
-      metadata:
-        name: test-secret
-      data:
-        secret: dGVzdA==
-    EOF
-  }
-]
-```
- 
 </details>
 
 
@@ -1283,7 +1332,7 @@ The table below lists the Talos and Kubernetes versions used by each Hcloud K8s 
 | :--------: | :---------: | :--------: |
 |  **(7)**   |   (1.15)    |    1.36    |
 |  **(6)**   |   (1.14)    |    1.35    |
-|  **(5)**   |    1.13     |    1.34    |
+|   **5**    |    1.13     |    1.34    |
 |   **4**    |    1.12     |    1.33    |
 <!--
 |   **3**    |    1.11     |    1.33    |
@@ -1297,16 +1346,16 @@ Parenthesized versions are planned targets.
 ### ☑️ Kubernetes Compatibility Matrix
 The table below lists the **minimum required versions** of each component to support the specified Kubernetes release.
 
-| Kubernetes | Hcloud CCM | Hcloud CSI | Longhorn |  Cilium  | Ingress NGINX | Cert Manager |
-| :--------: | :--------: | :--------: | :------: | :------: | :-----------: | :----------: |
-|  **1.36**  |   ≥ 1.31   |   ≥ 2.21   |    ?     |    ?     |       -       |   (≥ 1.21)   |
-|  **1.35**  |   ≥ 1.30   |   ≥ 2.19   |  ≥ 1.11  | ≥ 1.19.2 |    ≥ 4.15     |    ≥ 1.19    |
-|  **1.34**  |   ≥ 1.27   |   ≥ 2.18   |  ≥ 1.11  |  ≥ 1.19  |    ≥ 4.14     |    ≥ 1.19    |
-|  **1.33**  |   ≥ 1.26   |   ≥ 2.14   | ≥ 1.8.2  |  ≥ 1.18  |    ≥ 4.13     |    ≥ 1.18    |
+| Kubernetes | Hcloud CCM  | Hcloud CSI  |   Longhorn   |    Cilium     | Ingress NGINX | Cert Manager  |
+| :--------: | :---------: | :---------: | :----------: | :-----------: | :-----------: | :-----------: |
+|  **1.36**  | ≥&nbsp;1.31 | ≥&nbsp;2.21 | ≥&nbsp;1.12  | (≥&nbsp;1.20) |       -       | (≥&nbsp;1.21) |
+|  **1.35**  | ≥&nbsp;1.30 | ≥&nbsp;2.19 | ≥&nbsp;1.11  | ≥&nbsp;1.19.2 |  ≥&nbsp;4.15  |  ≥&nbsp;1.19  |
+|  **1.34**  | ≥&nbsp;1.27 | ≥&nbsp;2.18 | ≥&nbsp;1.11  |  ≥&nbsp;1.19  |  ≥&nbsp;4.14  |  ≥&nbsp;1.19  |
+|  **1.33**  | ≥&nbsp;1.26 | ≥&nbsp;2.14 | ≥&nbsp;1.8.2 |  ≥&nbsp;1.18  |  ≥&nbsp;4.13  |  ≥&nbsp;1.18  |
 <!--
-|  **1.32**  |   ≥ 1.23   |   ≥ 2.12   | ≥ 1.8.1  |  ≥ 1.17  |    ≥ 4.12     |    ≥ 1.17    |
-|  **1.31**  |   ≥ 1.21   |   ≥ 2.10   |  ≥ 1.8   |  ≥ 1.17  |    ≥ 4.12     |    ≥ 1.15    |
-|  **1.30**  |   ≥ 1.20   |   ≥ 2.9    | ≥ 1.7.1  |  ≥ 1.16  |   ≥ 4.10.1    |    ≥ 1.14    |
+|  **1.32**  |   ≥&nbsp;1.23   |   ≥&nbsp;2.12   | ≥&nbsp;1.8.1  |  ≥&nbsp;1.17  |    ≥&nbsp;4.12     |    ≥&nbsp;1.17    |
+|  **1.31**  |   ≥&nbsp;1.21   |   ≥&nbsp;2.10   |  ≥&nbsp;1.8   |  ≥&nbsp;1.17  |    ≥&nbsp;4.12     |    ≥&nbsp;1.15    |
+|  **1.30**  |   ≥&nbsp;1.20   |   ≥&nbsp;2.9    | ≥&nbsp;1.7.1  |  ≥&nbsp;1.16  |   ≥&nbsp;4.10.1    |    ≥&nbsp;1.14    |
 -->
 
 ### ⬆️ Upgrade Policy
@@ -1339,7 +1388,7 @@ Changing software versions manually is not recommended. Component versions are s
   * [x] Integrate Cilium Gateway API
   * [x] Deprecate Ingress NGINX in v4
   * [ ] Remove Ingress NGINX in v6
-* [ ] **Support for Hetzner [Dedicated Bare Metal Servers](https://www.hetzner.com/de/dedicated-rootserver/)**
+* [x] **Support for Hetzner [Dedicated Bare Metal Servers](https://www.hetzner.com/de/dedicated-rootserver/)**
 
 <!-- Support this Project -->
 ## ❤️ Support this Project
@@ -1353,11 +1402,11 @@ If you'd like to support this project, please consider leaving a ⭐ on GitHub!<
 </a>
 
 
-<picture>
+<!-- <picture>
  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=hcloud-k8s/terraform-hcloud-kubernetes&type=date&theme=dark&legend=top-left" />
  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=hcloud-k8s/terraform-hcloud-kubernetes&type=date&legend=top-left" />
  <img width="700" alt="Star History Chart" src="https://api.star-history.com/svg?repos=hcloud-k8s/terraform-hcloud-kubernetes&type=date&legend=top-left" />
-</picture>
+</picture> -->
 
 > [!TIP]
 > If you don’t have a Hetzner account yet, you can use this [Hetzner Cloud Referral Link](https://hetzner.cloud/?ref=GMylKeDmqtsD) to claim a €20 credit and support this project at the same time.
@@ -1367,7 +1416,7 @@ If you'd like to support this project, please consider leaving a ⭐ on GitHub!<
 <!-- sponsors-highlighted --><a href="https://github.com/mammouth-ai"><img src="https://github.com/mammouth-ai.png" width="120px" alt="mammouth.ai" /></a>&nbsp;&nbsp;<!-- sponsors-highlighted -->
 </p>
 <p align="center">
-<!-- sponsors --><a href="https://github.com/jonakoudijs"><img src="https://github.com/jonakoudijs.png" width="80px" alt="Jona Koudijs" /></a>&nbsp;&nbsp;<a href="https://liberapay.com/devXY"><img src="https://seccdn.libravatar.org/avatar/b6dddcd2f3a8097b0f1e148d14ebd1c4?s=160&amp;d=404&amp;=1" width="80px" alt="devXY" /></a>&nbsp;&nbsp;<!-- sponsors -->
+<!-- sponsors --><a href="https://github.com/jonakoudijs"><img src="https://github.com/jonakoudijs.png" width="80px" alt="Jona Koudijs" /></a>&nbsp;&nbsp;<a href="https://liberapay.com/devXY"><img src="https://seccdn.libravatar.org/avatar/b6dddcd2f3a8097b0f1e148d14ebd1c4?s=160&amp;d=404&amp;=1" width="80px" alt="devXY" /></a>&nbsp;&nbsp;<a href="https://github.com/paperclipinc"><img src="https://github.com/paperclipinc.png" width="80px" alt="Paperclip.inc" /></a>&nbsp;&nbsp;<a href="https://github.com/lukasgabriel"><img src="https://github.com/lukasgabriel.png" width="80px" alt="Lukas Gabriel" /></a>&nbsp;&nbsp;<!-- sponsors -->
 </p>
 
 Your sponsorship supports the ongoing development, improvement, and maintenance of this project 🙏

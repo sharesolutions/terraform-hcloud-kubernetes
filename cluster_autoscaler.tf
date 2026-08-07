@@ -1,13 +1,12 @@
 locals {
-  cluster_autoscaler_enabled             = length(local.cluster_autoscaler_nodepools) > 0
   cluster_autoscaler_hostname_pattern    = "^${var.cluster_name}-(${join("|", distinct([for np in local.cluster_autoscaler_nodepools : np.name]))})-[0-9a-f]+$"
-  cluster_autoscaler_node_label_selector = local.cluster_autoscaler_enabled ? "hcloud/node-group in (${join(",", [for np in local.cluster_autoscaler_nodepools : "${var.cluster_name}-${np.name}"])})" : ""
+  cluster_autoscaler_node_label_selector = var.cluster_autoscaler_enabled ? "hcloud/node-group in (${join(",", [for np in local.cluster_autoscaler_nodepools : "${var.cluster_name}-${np.name}"])})" : ""
 
   cluster_autoscaler_release_name       = "cluster-autoscaler"
   cluster_autoscaler_cloud_provider     = "hetzner"
   cluster_autoscaler_config_secret_name = "${local.cluster_autoscaler_release_name}-${local.cluster_autoscaler_cloud_provider}-config"
 
-  cluster_autoscaler_cluster_config_manifest = local.cluster_autoscaler_enabled ? {
+  cluster_autoscaler_cluster_config_manifest = var.cluster_autoscaler_enabled ? {
     apiVersion = "v1"
     kind       = "Secret"
     type       = "Opaque"
@@ -19,15 +18,19 @@ locals {
       cluster-config = base64encode(jsonencode(
         {
           imagesForArch = {
-            arm64 = local.image_label_selector,
-            amd64 = local.image_label_selector
+            arm64 = local.talos_image_label_selector,
+            amd64 = local.talos_image_label_selector
           },
+          defaultSubnetIPRange = hcloud_network_subnet.cluster_autoscaler_shared.ip_range,
           nodeConfigs = {
-            for nodepool in local.cluster_autoscaler_nodepools : "${var.cluster_name}-${nodepool.name}" => {
-              cloudInit = data.talos_machine_configuration.cluster_autoscaler[nodepool.name].machine_configuration,
-              labels    = nodepool.labels
-              taints    = nodepool.taints
-            }
+            for nodepool in local.cluster_autoscaler_nodepools : "${var.cluster_name}-${nodepool.name}" => merge(
+              {
+                cloudInit = data.talos_machine_configuration.cluster_autoscaler[nodepool.name].machine_configuration,
+                labels    = nodepool.labels
+                taints    = nodepool.taints
+              },
+              nodepool.subnet == null ? {} : { subnetIPRange = hcloud_network_subnet.cluster_autoscaler[nodepool.name].ip_range }
+            )
           }
         }
       ))
@@ -36,7 +39,7 @@ locals {
 }
 
 data "helm_template" "cluster_autoscaler" {
-  count = local.cluster_autoscaler_enabled ? 1 : 0
+  count = var.cluster_autoscaler_enabled ? 1 : 0
 
   name      = local.cluster_autoscaler_release_name
   namespace = "kube-system"
@@ -107,7 +110,7 @@ data "helm_template" "cluster_autoscaler" {
         HCLOUD_SSH_KEY                 = tostring(hcloud_ssh_key.this.id)
         HCLOUD_PUBLIC_IPV4             = tostring(var.talos_public_ipv4_enabled)
         HCLOUD_PUBLIC_IPV6             = tostring(var.talos_public_ipv6_enabled)
-        HCLOUD_NETWORK                 = tostring(hcloud_network_subnet.autoscaler.network_id)
+        HCLOUD_NETWORK                 = tostring(hcloud_network_subnet.cluster_autoscaler_shared.network_id)
       }
       extraEnvSecrets = {
         HCLOUD_TOKEN = {
@@ -132,7 +135,7 @@ data "helm_template" "cluster_autoscaler" {
 }
 
 locals {
-  cluster_autoscaler_manifest = local.cluster_autoscaler_enabled ? {
+  cluster_autoscaler_manifest = var.cluster_autoscaler_enabled ? {
     name     = "cluster-autoscaler"
     contents = <<-EOF
       ${data.helm_template.cluster_autoscaler[0].manifest}
