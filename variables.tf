@@ -168,7 +168,7 @@ variable "firewall_use_current_ipv4" {
 variable "firewall_use_current_ipv6" {
   type        = bool
   default     = null
-  description = "Determines whether the current IPv6 /64 CIDR is used for Talos and Kube API firewall rules. If `cluster_access` is set to `public`, the default is true."
+  description = "Determines whether the current IPv6 /64 CIDR is used for Talos and Kube API firewall rules. Set to true to require IPv6 or false to disable it. When omitted, IPv6 is used only if it is detected automatically."
 }
 
 variable "firewall_extra_rules" {
@@ -747,11 +747,45 @@ variable "packer_arm64_builder" {
   }
 }
 
+variable "talos_cloud_amd64_image_build_enabled" {
+  type        = bool
+  default     = true
+  description = "Controls whether the module builds a missing Talos AMD64 cloud image with Packer. Disable this only when a suitable snapshot already exists in the Hetzner Cloud project."
+}
+
+variable "talos_cloud_amd64_image_selector" {
+  type        = string
+  default     = "exact"
+  description = "Selects the Talos AMD64 cloud image. 'exact' requires labels matching the cluster, Talos version, and schematic ID. WARNING: 'latest' selects the newest image for the cluster and architecture without matching the Talos version or schematic ID. It is strongly discouraged, entirely unsupported, and not an officially supported mechanism."
+
+  validation {
+    condition     = contains(["exact", "latest"], var.talos_cloud_amd64_image_selector)
+    error_message = "The talos_cloud_amd64_image_selector value must be one of: 'exact' or 'latest'."
+  }
+}
+
+variable "talos_cloud_arm64_image_build_enabled" {
+  type        = bool
+  default     = true
+  description = "Controls whether the module builds a missing Talos ARM64 cloud image with Packer. Disable this only when a suitable snapshot already exists in the Hetzner Cloud project."
+}
+
+variable "talos_cloud_arm64_image_selector" {
+  type        = string
+  default     = "exact"
+  description = "Selects the Talos ARM64 cloud image. 'exact' requires labels matching the cluster, Talos version, and schematic ID. WARNING: 'latest' selects the newest image for the cluster and architecture without matching the Talos version or schematic ID. It is strongly discouraged, entirely unsupported, and not an officially supported mechanism."
+
+  validation {
+    condition     = contains(["exact", "latest"], var.talos_cloud_arm64_image_selector)
+    error_message = "The talos_cloud_arm64_image_selector value must be one of: 'exact' or 'latest'."
+  }
+}
+
 
 # Talos
 variable "talos_version" {
   type        = string
-  default     = "v1.13.7" # https://github.com/siderolabs/talos
+  default     = "v1.13.10" # https://github.com/siderolabs/talos
   description = "Specifies the version of Talos to be used in generated machine configurations."
 }
 
@@ -1168,7 +1202,7 @@ variable "talos_backup_schedule" {
 # Kubernetes
 variable "kubernetes_version" {
   type        = string
-  default     = "v1.34.10" # https://github.com/kubernetes/kubernetes
+  default     = "v1.34.11" # https://github.com/kubernetes/kubernetes
   description = "Specifies the Kubernetes version to deploy."
 }
 
@@ -1536,7 +1570,7 @@ variable "hcloud_ccm_helm_chart" {
 
 variable "hcloud_ccm_helm_version" {
   type        = string
-  default     = "1.34.0"
+  default     = "1.36.0"
   description = "Version of the Hcloud CCM Helm chart to deploy."
 }
 
@@ -1682,7 +1716,7 @@ variable "hcloud_csi_helm_chart" {
 
 variable "hcloud_csi_helm_version" {
   type        = string
-  default     = "2.22.1"
+  default     = "2.23.0"
   description = "Version of the Hcloud CSI Helm chart to deploy."
 }
 
@@ -1747,7 +1781,7 @@ variable "longhorn_helm_chart" {
 
 variable "longhorn_helm_version" {
   type        = string
-  default     = "1.11.3"
+  default     = "1.12.1"
   description = "Version of the Longhorn Helm chart to deploy."
 }
 
@@ -1791,7 +1825,7 @@ variable "cilium_helm_chart" {
 
 variable "cilium_helm_version" {
   type        = string
-  default     = "1.19.6"
+  default     = "1.20.1"
   description = "Version of the Cilium Helm chart to deploy."
 }
 
@@ -1992,7 +2026,7 @@ variable "metrics_server_helm_chart" {
 
 variable "metrics_server_helm_version" {
   type        = string
-  default     = "3.13.1"
+  default     = "3.14.0"
   description = "Version of the Metrics Server Helm chart to deploy."
 }
 
@@ -2036,7 +2070,7 @@ variable "cert_manager_helm_chart" {
 
 variable "cert_manager_helm_version" {
   type        = string
-  default     = "v1.20.3"
+  default     = "v1.21.2"
   description = "Version of the Cert Manager Helm chart to deploy."
 }
 
@@ -2068,7 +2102,7 @@ variable "cert_manager_webhook_hetzner_helm_chart" {
 
 variable "cert_manager_webhook_hetzner_helm_version" {
   type        = string
-  default     = "0.8.0"
+  default     = "0.9.0"
   description = "Version of the Cert Manager Hetzner webhook Helm chart to deploy."
 }
 
@@ -2392,7 +2426,7 @@ variable "gateway_api_crds_enabled" {
 
 variable "gateway_api_crds_version" {
   type        = string
-  default     = "v1.4.1" # https://github.com/kubernetes-sigs/gateway-api
+  default     = "v1.6.1" # https://github.com/kubernetes-sigs/gateway-api
   description = "Specifies the version of the Gateway API Custom Resource Definitions (CRDs) to deploy."
 }
 
@@ -2417,6 +2451,6 @@ variable "prometheus_operator_crds_enabled" {
 
 variable "prometheus_operator_crds_version" {
   type        = string
-  default     = "v0.93.0" # https://github.com/prometheus-operator/prometheus-operator
+  default     = "v0.93.1" # https://github.com/prometheus-operator/prometheus-operator
   description = "Specifies the version of the Prometheus Operator Custom Resource Definitions (CRDs) to deploy."
 }

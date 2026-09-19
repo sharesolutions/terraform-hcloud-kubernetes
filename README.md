@@ -61,9 +61,6 @@ Hcloud Kubernetes is a Terraform module for deploying a fully declarative, manag
 
 This project is committed to production-grade configuration and lifecycle management, ensuring all components are set up for high availability. It includes a curated selection of widely used and officially recognized Kubernetes components. If you encounter any issues, suboptimal settings, or missing elements, please file an [issue](https://github.com/hcloud-k8s/terraform-hcloud-kubernetes/issues) to help us improve this project.
 
-> [!TIP]
-> If you don’t have a Hetzner account yet, you can use this [Hetzner Cloud Referral Link](https://hetzner.cloud/?ref=GMylKeDmqtsD) to claim a €20 credit and support this project at the same time.
-
 <!-- Features -->
 ### ✨ Features
 
@@ -83,57 +80,57 @@ Provision a highly available and secure Kubernetes cluster on Hetzner Cloud, def
 ### 📦 Components
 This project bundles essential Kubernetes components, preconfigured for seamless operation on Hetzner Cloud:
 - <summary>
-    <img align="center" alt="Talos Cloud Controller Manager" src="https://www.google.com/s2/favicons?domain=https://docs.siderolabs.com&sz=32" width="16">
+    <img align="absmiddle" alt="Talos Cloud Controller Manager" src="https://www.google.com/s2/favicons?domain=https://docs.siderolabs.com&sz=32" width="18">
     <b><a href="https://github.com/siderolabs/talos-cloud-controller-manager">Talos Cloud Controller Manager (CCM)</a></b>
   </summary>
   Automatically approves kubelet server Certificate Signing Requests (CSRs) for Talos nodes.
 - <summary>
-    <img align="center" alt="Talos Backup" src="https://www.google.com/s2/favicons?domain=https://docs.siderolabs.com&sz=32" width="16">
+    <img align="absmiddle" alt="Talos Backup" src="https://www.google.com/s2/favicons?domain=https://docs.siderolabs.com&sz=32" width="18">
     <b><a href="https://github.com/siderolabs/talos-backup">Talos Backup</a></b>
   </summary>
   Automates etcd snapshots and S3 storage for backup in Talos Linux-based Kubernetes clusters.
 - <summary>
-    <img align="center" alt="Hcloud Cloud Controller Manager" src="https://www.google.com/s2/favicons?domain=hetzner.com&sz=32" width="16">
+    <img align="absmiddle" alt="Hcloud Cloud Controller Manager" src="https://www.google.com/s2/favicons?domain=hetzner.com&sz=32" width="18">
     <b><a href="https://github.com/hetznercloud/hcloud-cloud-controller-manager">Hcloud Cloud Controller Manager (CCM)</a></b>
   </summary>
   Manages the integration of Kubernetes clusters with Hetzner Cloud services, ensuring the update of node data, private network traffic control, and load balancer setup.
 - <summary>
-    <img align="center" alt="Hcloud Container Storage Interface" src="https://www.google.com/s2/favicons?domain=hetzner.com&sz=32" width="16">
+    <img align="absmiddle" alt="Hcloud Container Storage Interface" src="https://www.google.com/s2/favicons?domain=hetzner.com&sz=32" width="18">
     <b><a href="https://github.com/hetznercloud/csi-driver">Hcloud Container Storage Interface (CSI)</a></b>
   </summary>
   Provides persistent storage for Kubernetes using Hetzner Cloud Volumes, supporting encryption and dynamic provisioning.
 - <summary>
-    <img align="center" alt="Longhorn" src="https://www.google.com/s2/favicons?domain=longhorn.io&sz=32" width="16">
+    <img align="absmiddle" alt="Longhorn" src="https://www.google.com/s2/favicons?domain=longhorn.io&sz=32" width="18">
     <b><a href="https://longhorn.io">Longhorn</a></b>
   </summary>
   Distributed block storage for Kubernetes, providing high availability, snapshots, and automatic replica rebuilding for easy persistent volume management.
 - <summary>
-    <img align="center" alt="Cilium Container Network Interface" src="https://www.google.com/s2/favicons?domain=cilium.io&sz=32" width="16">
+    <img align="absmiddle" alt="Cilium Container Network Interface" src="https://www.google.com/s2/favicons?domain=cilium.io&sz=32" width="18">
     <b><a href="https://cilium.io">Cilium Container Network Interface (CNI)</a></b>
   </summary>
   A high performance CNI plugin that enhances and secures network connectivity and observability for container workloads through the use of eBPF technology in Linux kernels.
 - <summary>
-    <img align="center" alt="Cilium Gateway API" src="https://www.google.com/s2/favicons?domain=cilium.io&sz=32" width="16">
+    <img align="absmiddle" alt="Cilium Gateway API" src="https://www.google.com/s2/favicons?domain=cilium.io&sz=32" width="18">
     <b><a href="https://cilium.io/use-cases/gateway-api/">Cilium Gateway API</a></b>
   </summary>
   Cilium Gateway API implements the Kubernetes Gateway API using eBPF for traffic steering and policy enforcement, with Envoy providing Layer 7 proxying for HTTP and TLS routing.
 - <summary>
-    <img align="center" alt="Cert Manager" src="https://www.google.com/s2/favicons?domain=cert-manager.io&sz=32" width="16">
+    <img align="absmiddle" alt="Cert Manager" src="https://www.google.com/s2/favicons?domain=cert-manager.io&sz=32" width="18">
     <b><a href="https://cert-manager.io">Cert Manager</a></b>
   </summary>
   Automates the management of certificates in Kubernetes, handling the issuance and renewal of certificates from various sources like Let's Encrypt, and ensures certificates are valid and updated.
 - <summary>
-    <img align="center" alt="Cert Manager Webhook Hetzner" src="https://www.google.com/s2/favicons?domain=hetzner.com&sz=32" width="16">
+    <img align="absmiddle" alt="Cert Manager Webhook Hetzner" src="https://www.google.com/s2/favicons?domain=hetzner.com&sz=32" width="18">
     <b><a href="https://github.com/hetzner/cert-manager-webhook-hetzner">Cert Manager Webhook Hetzner</a></b>
   </summary>
   Adds Hetzner DNS support for Cert Manager ACME DNS-01 challenges, including wildcard certificates and certificates that do not depend on public HTTP routing.
 - <summary>
-    <img align="center" alt="Cluster Autoscaler" src="https://www.google.com/s2/favicons?domain=kubernetes.io&sz=32" width="16">
+    <img align="absmiddle" alt="Cluster Autoscaler" src="https://www.google.com/s2/favicons?domain=kubernetes.io&sz=32" width="18">
     <b><a href="https://github.com/kubernetes/autoscaler/tree/master/cluster-autoscaler">Cluster Autoscaler</a></b>
   </summary>
   Dynamically adjusts Kubernetes cluster size based on resource demands and node utilization, scaling nodes in or out to optimize cost and performance.
 - <summary>
-    <img align="center" alt="Metrics Server" src="https://www.google.com/s2/favicons?domain=kubernetes.io&sz=32" width="16">
+    <img align="absmiddle" alt="Metrics Server" src="https://www.google.com/s2/favicons?domain=kubernetes.io&sz=32" width="18">
     <b><a href="https://kubernetes-sigs.github.io/metrics-server/">Metrics Server</a></b>
   </summary>
   Collects and provides container resource metrics for Kubernetes, enabling features like autoscaling by interacting with Horizontal and Vertical Pod Autoscalers.
@@ -142,13 +139,14 @@ This project bundles essential Kubernetes components, preconfigured for seamless
 ### 🛡️ Security
 Talos Linux is a secure, minimal, and immutable OS for Kubernetes, removing SSH and shell access to reduce attack surfaces. Managed through a secure API with mTLS, Talos prevents configuration drift, enhancing both security and predictability. It follows [NIST](https://www.nist.gov/publications/application-container-security-guide) and [CIS](https://www.cisecurity.org/benchmark/kubernetes) hardening standards, operates in memory, and is built to support modern, production-grade Kubernetes environments.
 
-**Perimeter Security:** External access to cluster nodes is controlled and restricted using [Hetzner Cloud Firewall](https://docs.hetzner.com/cloud/firewalls/).
-
-**Network Policy:** Internal cluster traffic can be governed by Kubernetes Network Policies using [Cilium CNI](https://docs.cilium.io/en/stable/network/kubernetes/policy/).
-
-**Encryption in Transit:** Pod network traffic is transparently encrypted by Cilium using [WireGuard](https://docs.cilium.io/en/latest/security/network/encryption-wireguard/) by default, with optional support for [IPsec](https://docs.cilium.io/en/latest/security/network/encryption-ipsec/).
-
-**Encryption at Rest:** The [STATE](https://www.talos.dev/latest/learn-more/architecture/#file-system-partitions) and [EPHEMERAL](https://www.talos.dev/latest/learn-more/architecture/#file-system-partitions) partitions are encrypted by default using [Talos Disk Encryption](https://www.talos.dev/latest/talos-guides/configuration/disk-encryption/) with LUKS2. Each node is secured with an individual encryption key derived from its unique `nodeID`.
+- **🧱 Perimeter Security**<br>
+  External access to cluster nodes is restricted by [Hetzner Cloud Firewall](https://docs.hetzner.com/cloud/firewalls/) rules that limit exposed ports and allow incoming traffic only from selected sources.
+- **🚦 Network Policy**<br>
+  Internal traffic between workloads is governed by Kubernetes Network Policies enforced by [Cilium CNI](https://docs.cilium.io/en/stable/network/kubernetes/policy/), enabling fine-grained control over workload communication.
+- **🔐 Encryption in Transit**<br>
+  Pod-to-pod traffic is transparently encrypted by Cilium using [WireGuard](https://docs.cilium.io/en/latest/security/network/encryption-wireguard/) by default, while [IPsec](https://docs.cilium.io/en/latest/security/network/encryption-ipsec/) is available as an alternative.
+- **🗄️ Encryption at Rest**<br>
+  Talos encrypts the [STATE](https://docs.siderolabs.com/talos/latest/configure-your-talos-cluster/storage-and-disk-management/disk-encryption#state-partition) and [EPHEMERAL](https://docs.siderolabs.com/talos/latest/configure-your-talos-cluster/storage-and-disk-management/disk-encryption#ephemeral-partition) partitions with [LUKS2](https://docs.siderolabs.com/talos/latest/configure-your-talos-cluster/storage-and-disk-management/disk-encryption) by default. Each node uses an individual encryption key derived from its unique `nodeID`.
 
 <!-- Getting Started -->
 ## 🚀 Getting Started
@@ -159,7 +157,7 @@ Talos Linux is a secure, minimal, and immutable OS for Kubernetes, removing SSH 
 - [terraform](https://developer.hashicorp.com/terraform/install) or [tofu](https://opentofu.org/docs/intro/install/) to deploy the Cluster
 - [packer](https://developer.hashicorp.com/packer/install) to upload Talos Images
 - [curl](https://curl.se) and [jq](https://jqlang.org/download/) for API Communication
-- [talosctl](https://www.talos.dev/latest/talos-guides/install/talosctl) to control the Talos Cluster
+- [talosctl](https://docs.siderolabs.com/talos/latest/getting-started/talosctl) to control the Talos Cluster
 - [kubectl](https://kubernetes.io/docs/tasks/tools/#kubectl) to control Kubernetes (optional)
 
 > [!IMPORTANT]
@@ -230,7 +228,7 @@ kubectl get pods -A
 ```
 
 For more detailed information and examples, please visit:
-- [Talos CLI Documentation](https://www.talos.dev/latest/reference/cli/)
+- [Talos CLI Documentation](https://docs.siderolabs.com/talos/latest/reference/cli)
 - [Kubernetes CLI Documentation](https://kubernetes.io/docs/reference/kubectl/introduction/)
 
 ### 💥 Teardown
@@ -1069,6 +1067,45 @@ talos_backup_schedule = "0 * * * *"
 To recover from a snapshot, please refer to the Talos Disaster Recovery section in the [Documentation](https://www.talos.dev/latest/advanced/disaster-recovery/#recovery).
 </details>
 
+<!-- Talos Cloud Images -->
+<details>
+<summary><b>Talos Cloud Images</b></summary>
+
+By default, the module builds missing AMD64 and ARM64 Talos snapshots with Packer and selects images whose labels exactly match the cluster name, Talos version, and schematic ID. Image building and selection can be configured independently for each architecture:
+
+```hcl
+talos_cloud_amd64_image_build_enabled = true
+talos_cloud_amd64_image_selector      = "exact"
+
+talos_cloud_arm64_image_build_enabled = true
+talos_cloud_arm64_image_selector      = "exact"
+```
+
+The supported selector values are:
+
+- `exact`: Selects an image matching the cluster name, Talos version, and schematic ID.
+- `latest`: Selects the newest image matching only the cluster name and architecture.
+
+Disabling an image builder is useful when matching snapshots are created outside this module. For example:
+
+```hcl
+talos_cloud_arm64_image_build_enabled = false
+talos_cloud_arm64_image_selector      = "exact"
+```
+
+If no exactly matching snapshot exists, the lookup fails instead of silently selecting an older image.
+
+To disable the ARM64 builder and explicitly select the newest existing cluster snapshot:
+
+```hcl
+talos_cloud_arm64_image_build_enabled = false
+talos_cloud_arm64_image_selector      = "latest"
+```
+
+> ⚠️ **Warning:** The `latest` selector is strongly discouraged and unsupported. It ignores the configured Talos version and schematic ID, so new nodes may boot with incompatible Talos versions, system extensions, or kernel arguments. This can cause bootstrap failures, unavailable nodes, or cluster disruption. It is not an officially supported recovery or emergency mechanism. Use it entirely at your own risk.
+
+</details>
+
 
 <!-- Talos Discovery Service -->
 <details>
@@ -1331,10 +1368,10 @@ The table below lists the Talos and Kubernetes versions used by each Hcloud K8s 
 | Hcloud K8s | Talos Linux | Kubernetes |
 | :--------: | :---------: | :--------: |
 |  **(7)**   |   (1.15)    |    1.36    |
-|  **(6)**   |   (1.14)    |    1.35    |
+|  **(6)**   |    1.14     |    1.35    |
 |   **5**    |    1.13     |    1.34    |
-|   **4**    |    1.12     |    1.33    |
 <!--
+|   **4**    |    1.12     |    1.33    |
 |   **3**    |    1.11     |    1.33    |
 |   **2**    |     1.9     |    1.32    |
 |   **1**    |     1.8     |    1.31    |
@@ -1346,17 +1383,11 @@ Parenthesized versions are planned targets.
 ### ☑️ Kubernetes Compatibility Matrix
 The table below lists the **minimum required versions** of each component to support the specified Kubernetes release.
 
-| Kubernetes | Hcloud CCM  | Hcloud CSI  |   Longhorn   |    Cilium     | Ingress NGINX | Cert Manager  |
-| :--------: | :---------: | :---------: | :----------: | :-----------: | :-----------: | :-----------: |
-|  **1.36**  | ≥&nbsp;1.31 | ≥&nbsp;2.21 | ≥&nbsp;1.12  | (≥&nbsp;1.20) |       -       | (≥&nbsp;1.21) |
-|  **1.35**  | ≥&nbsp;1.30 | ≥&nbsp;2.19 | ≥&nbsp;1.11  | ≥&nbsp;1.19.2 |  ≥&nbsp;4.15  |  ≥&nbsp;1.19  |
-|  **1.34**  | ≥&nbsp;1.27 | ≥&nbsp;2.18 | ≥&nbsp;1.11  |  ≥&nbsp;1.19  |  ≥&nbsp;4.14  |  ≥&nbsp;1.19  |
-|  **1.33**  | ≥&nbsp;1.26 | ≥&nbsp;2.14 | ≥&nbsp;1.8.2 |  ≥&nbsp;1.18  |  ≥&nbsp;4.13  |  ≥&nbsp;1.18  |
-<!--
-|  **1.32**  |   ≥&nbsp;1.23   |   ≥&nbsp;2.12   | ≥&nbsp;1.8.1  |  ≥&nbsp;1.17  |    ≥&nbsp;4.12     |    ≥&nbsp;1.17    |
-|  **1.31**  |   ≥&nbsp;1.21   |   ≥&nbsp;2.10   |  ≥&nbsp;1.8   |  ≥&nbsp;1.17  |    ≥&nbsp;4.12     |    ≥&nbsp;1.15    |
-|  **1.30**  |   ≥&nbsp;1.20   |   ≥&nbsp;2.9    | ≥&nbsp;1.7.1  |  ≥&nbsp;1.16  |   ≥&nbsp;4.10.1    |    ≥&nbsp;1.14    |
--->
+| Kubernetes | Hcloud CCM  | Hcloud CSI  |  Longhorn   |    Cilium     | Cert Manager | Hetzner Webhook |
+| :--------: | :---------: | :---------: | :---------: | :-----------: | :----------: | :-------------: |
+|  **1.36**  | ≥&nbsp;1.31 | ≥&nbsp;2.21 | ≥&nbsp;1.12 |  ≥&nbsp;1.20  | ≥&nbsp;1.21  |   ≥&nbsp;0.8    |
+|  **1.35**  | ≥&nbsp;1.30 | ≥&nbsp;2.19 | ≥&nbsp;1.11 | ≥&nbsp;1.19.2 | ≥&nbsp;1.19  |  ≥&nbsp;0.6.4   |
+|  **1.34**  | ≥&nbsp;1.27 | ≥&nbsp;2.18 | ≥&nbsp;1.11 |  ≥&nbsp;1.19  | ≥&nbsp;1.19  |  ≥&nbsp;0.6.1   |
 
 ### ⬆️ Upgrade Policy
 Any minor or major upgrade to **Talos** or **Kubernetes** results in a major version change for this module. Downgrades are generally neither supported nor tested.
@@ -1374,7 +1405,6 @@ Changing software versions manually is not recommended. Component versions are s
 - HCSI: https://github.com/hetznercloud/csi-driver/blob/main/docs/kubernetes/versioning-policy.md
 - Longhorn: https://longhorn.io/docs/1.10.0/best-practices/#kubernetes-version
 - Cilium: https://github.com/cilium/cilium/blob/v1.19.2/Documentation/network/kubernetes/compatibility.rst
-- Ingress Nginx: https://github.com/kubernetes/ingress-nginx?tab=readme-ov-file#supported-versions-table 
 - Cert Manager: https://cert-manager.io/docs/releases/
 - Cert Manager Webhook Hetzner: https://github.com/hetzner/cert-manager-webhook-hetzner/releases
 - Autoscaler: https://github.com/kubernetes/autoscaler/blob/master/cluster-autoscaler/README.md#releases
@@ -1408,12 +1438,9 @@ If you'd like to support this project, please consider leaving a ⭐ on GitHub!<
  <img width="700" alt="Star History Chart" src="https://api.star-history.com/svg?repos=hcloud-k8s/terraform-hcloud-kubernetes&type=date&legend=top-left" />
 </picture> -->
 
-> [!TIP]
-> If you don’t have a Hetzner account yet, you can use this [Hetzner Cloud Referral Link](https://hetzner.cloud/?ref=GMylKeDmqtsD) to claim a €20 credit and support this project at the same time.
-
 ### 💖 Special Thanks to All Sponsors! 💖
 <p align="center">
-<!-- sponsors-highlighted --><a href="https://github.com/mammouth-ai"><img src="https://github.com/mammouth-ai.png" width="120px" alt="mammouth.ai" /></a>&nbsp;&nbsp;<!-- sponsors-highlighted -->
+<!-- sponsors-highlighted --><!-- sponsors-highlighted -->
 </p>
 <p align="center">
 <!-- sponsors --><a href="https://github.com/jonakoudijs"><img src="https://github.com/jonakoudijs.png" width="80px" alt="Jona Koudijs" /></a>&nbsp;&nbsp;<a href="https://liberapay.com/devXY"><img src="https://seccdn.libravatar.org/avatar/b6dddcd2f3a8097b0f1e148d14ebd1c4?s=160&amp;d=404&amp;=1" width="80px" alt="devXY" /></a>&nbsp;&nbsp;<a href="https://github.com/paperclipinc"><img src="https://github.com/paperclipinc.png" width="80px" alt="Paperclip.inc" /></a>&nbsp;&nbsp;<a href="https://github.com/lukasgabriel"><img src="https://github.com/lukasgabriel.png" width="80px" alt="Lukas Gabriel" /></a>&nbsp;&nbsp;<!-- sponsors -->
