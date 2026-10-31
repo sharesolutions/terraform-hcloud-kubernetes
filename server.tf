@@ -17,19 +17,23 @@ resource "hcloud_server" "control_plane" {
   for_each = merge([
     for np_index in range(length(local.control_plane_nodepools)) : {
       for cp_index in range(local.control_plane_nodepools[np_index].count) : "${var.cluster_name}-${local.control_plane_nodepools[np_index].name}-${cp_index + 1}" => {
-        server_type        = local.control_plane_nodepools[np_index].server_type,
-        location           = local.control_plane_nodepools[np_index].location,
-        backups            = local.control_plane_nodepools[np_index].backups,
-        keep_disk          = local.control_plane_nodepools[np_index].keep_disk,
-        labels             = local.control_plane_nodepools[np_index].labels,
-        placement_group_id = hcloud_placement_group.control_plane.id,
-        subnet_id          = hcloud_network_subnet.control_plane.id,
+        public_ipv4_enabled = local.control_plane_nodepools[np_index].public_ipv4_enabled
+        public_ipv6_enabled = local.control_plane_nodepools[np_index].public_ipv6_enabled
+        extra_networks      = { for key, net in local.control_plane_nodepools[np_index].extra_networks : key => merge(net, { ip = net.ip_addresses[cp_index] }) }
+        shared_ipv4         = try(local.control_plane_nodepools[np_index].shared_ipv4_addresses[cp_index], null)
+        server_type         = local.control_plane_nodepools[np_index].server_type,
+        location            = local.control_plane_nodepools[np_index].location,
+        backups             = local.control_plane_nodepools[np_index].backups,
+        keep_disk           = local.control_plane_nodepools[np_index].keep_disk,
+        labels              = local.control_plane_nodepools[np_index].labels,
+        placement_group_id  = local.control_plane_nodepools[np_index].placement_group_id != null ? local.control_plane_nodepools[np_index].placement_group_id : one(hcloud_placement_group.control_plane[*].id),
+        subnet_id           = hcloud_network_subnet.control_plane.id,
       }
     }
   ]...)
 
   name                     = each.key
-  image                    = can(regex(local.cloud_arm64_server_type_pattern, each.value.server_type)) ? data.hcloud_image.arm64[0].id : data.hcloud_image.amd64[0].id
+  image                    = local.control_plane_custom_image_enabled ? data.hcloud_image.control_plane[0].id : can(regex(local.cloud_arm64_server_type_pattern, each.value.server_type)) ? data.hcloud_image.arm64[0].id : data.hcloud_image.amd64[0].id
   server_type              = each.value.server_type
   location                 = each.value.location
   placement_group_id       = each.value.placement_group_id
@@ -37,7 +41,7 @@ resource "hcloud_server" "control_plane" {
   keep_disk                = each.value.keep_disk
   ssh_keys                 = [hcloud_ssh_key.this.id]
   shutdown_before_deletion = true
-  user_data                = local.talos_user_data
+  user_data                = length(each.value.extra_networks) > 0 ? null : local.talos_user_data
   delete_protection        = var.cluster_delete_protection
   rebuild_protection       = var.cluster_delete_protection
 
@@ -52,16 +56,27 @@ resource "hcloud_server" "control_plane" {
   firewall_ids = [local.firewall_id]
 
   public_net {
-    ipv4_enabled = var.talos_public_ipv4_enabled
-    ipv6_enabled = var.talos_public_ipv6_enabled
+    ipv4_enabled = each.value.public_ipv4_enabled
+    ipv6_enabled = each.value.public_ipv6_enabled
   }
 
   network {
     subnet_id = each.value.subnet_id
+    ip        = each.value.shared_ipv4
     alias_ips = []
   }
 
+  dynamic "network" {
+    for_each = each.value.extra_networks
+    content {
+      subnet_id = network.value.subnet_id
+      ip        = network.value.ip
+      alias_ips = []
+    }
+  }
+
   depends_on = [
+    terraform_data.private_node_dependencies,
     terraform_data.hcloud_server_cluster_autoscaler,
     hcloud_network_subnet.control_plane,
     hcloud_placement_group.control_plane
@@ -71,7 +86,6 @@ resource "hcloud_server" "control_plane" {
     ignore_changes = [
       image,
       user_data,
-      network,
       ssh_keys
     ]
   }
@@ -81,16 +95,20 @@ resource "hcloud_server" "worker" {
   for_each = merge([
     for np_index in range(length(local.worker_nodepools)) : {
       for wkr_index in range(local.worker_nodepools[np_index].count) : "${var.cluster_name}-${local.worker_nodepools[np_index].name}-${wkr_index + 1}" => {
-        server_type        = local.worker_nodepools[np_index].server_type,
-        location           = local.worker_nodepools[np_index].location,
-        backups            = local.worker_nodepools[np_index].backups,
-        keep_disk          = local.worker_nodepools[np_index].keep_disk,
-        labels             = local.worker_nodepools[np_index].labels,
-        placement_group_id = local.worker_nodepools[np_index].placement_group ? hcloud_placement_group.worker["${var.cluster_name}-${local.worker_nodepools[np_index].name}-pg-${ceil((wkr_index + 1) / 10.0)}"].id : null,
-        subnet_id          = local.worker_nodepools[np_index].subnet != null ? hcloud_network_subnet.worker[local.worker_nodepools[np_index].name].id : hcloud_network_subnet.worker_shared.id,
-        ipv4_private       = local.worker_nodepools[np_index].subnet != null ? cidrhost(hcloud_network_subnet.worker[local.worker_nodepools[np_index].name].ip_range, wkr_index + 1) : null,
+        public_ipv4_enabled = local.worker_nodepools[np_index].public_ipv4_enabled
+        public_ipv6_enabled = local.worker_nodepools[np_index].public_ipv6_enabled
+        extra_networks      = { for key, net in local.worker_nodepools[np_index].extra_networks : key => merge(net, { ip = net.ip_addresses[wkr_index] }) }
+        shared_ipv4         = try(local.worker_nodepools[np_index].shared_ipv4_addresses[wkr_index], null)
+        server_type         = local.worker_nodepools[np_index].server_type,
+        location            = local.worker_nodepools[np_index].location,
+        backups             = local.worker_nodepools[np_index].backups,
+        keep_disk           = local.worker_nodepools[np_index].keep_disk,
+        labels              = local.worker_nodepools[np_index].labels,
+        placement_group_id  = local.worker_nodepools[np_index].placement_group_id != null ? local.worker_nodepools[np_index].placement_group_id : local.worker_nodepools[np_index].placement_group ? hcloud_placement_group.worker["${var.cluster_name}-${local.worker_nodepools[np_index].name}-pg-${ceil((wkr_index + 1) / 10.0)}"].id : null,
+        subnet_id           = local.worker_nodepools[np_index].subnet != null ? hcloud_network_subnet.worker[local.worker_nodepools[np_index].name].id : hcloud_network_subnet.worker_shared.id,
+        ipv4_private        = local.worker_nodepools[np_index].subnet != null ? cidrhost(hcloud_network_subnet.worker[local.worker_nodepools[np_index].name].ip_range, wkr_index + 1) : null,
       }
-    }
+    } if !local.worker_nodepools[np_index].edge
   ]...)
 
   name                     = each.key
@@ -102,7 +120,7 @@ resource "hcloud_server" "worker" {
   keep_disk                = each.value.keep_disk
   ssh_keys                 = [hcloud_ssh_key.this.id]
   shutdown_before_deletion = true
-  user_data                = local.talos_user_data
+  user_data                = length(each.value.extra_networks) > 0 ? null : local.talos_user_data
   delete_protection        = var.cluster_delete_protection
   rebuild_protection       = var.cluster_delete_protection
 
@@ -117,14 +135,103 @@ resource "hcloud_server" "worker" {
   firewall_ids = [local.firewall_id]
 
   public_net {
-    ipv4_enabled = var.talos_public_ipv4_enabled
-    ipv6_enabled = var.talos_public_ipv6_enabled
+    ipv4_enabled = each.value.public_ipv4_enabled
+    ipv6_enabled = each.value.public_ipv6_enabled
   }
 
   network {
     subnet_id = each.value.subnet_id
-    ip        = each.value.ipv4_private
+    ip        = each.value.shared_ipv4 != null ? each.value.shared_ipv4 : each.value.ipv4_private
     alias_ips = []
+  }
+
+  dynamic "network" {
+    for_each = each.value.extra_networks
+    content {
+      subnet_id = network.value.subnet_id
+      ip        = network.value.ip
+      alias_ips = []
+    }
+  }
+
+  depends_on = [
+    terraform_data.private_node_dependencies,
+    terraform_data.hcloud_server_cluster_autoscaler,
+    hcloud_network_subnet.worker_shared,
+    hcloud_network_subnet.worker,
+    hcloud_placement_group.worker
+  ]
+
+  lifecycle {
+    ignore_changes = [
+      image,
+      user_data,
+      ssh_keys
+    ]
+  }
+}
+
+resource "hcloud_server" "edge" {
+  for_each = merge([
+    for np_index in range(length(local.worker_nodepools)) : {
+      for wkr_index in range(local.worker_nodepools[np_index].count) : "${var.cluster_name}-${local.worker_nodepools[np_index].name}-${wkr_index + 1}" => {
+        public_ipv4_enabled = local.worker_nodepools[np_index].public_ipv4_enabled
+        public_ipv6_enabled = local.worker_nodepools[np_index].public_ipv6_enabled
+        extra_networks      = { for key, net in local.worker_nodepools[np_index].extra_networks : key => merge(net, { ip = net.ip_addresses[wkr_index] }) }
+        shared_ipv4         = try(local.worker_nodepools[np_index].shared_ipv4_addresses[wkr_index], null)
+        server_type         = local.worker_nodepools[np_index].server_type,
+        location            = local.worker_nodepools[np_index].location,
+        backups             = local.worker_nodepools[np_index].backups,
+        keep_disk           = local.worker_nodepools[np_index].keep_disk,
+        labels              = local.worker_nodepools[np_index].labels,
+        placement_group_id  = local.worker_nodepools[np_index].placement_group_id != null ? local.worker_nodepools[np_index].placement_group_id : local.worker_nodepools[np_index].placement_group ? hcloud_placement_group.worker["${var.cluster_name}-${local.worker_nodepools[np_index].name}-pg-${ceil((wkr_index + 1) / 10.0)}"].id : null,
+        subnet_id           = local.worker_nodepools[np_index].subnet != null ? hcloud_network_subnet.worker[local.worker_nodepools[np_index].name].id : hcloud_network_subnet.worker_shared.id,
+        ipv4_private        = local.worker_nodepools[np_index].subnet != null ? cidrhost(hcloud_network_subnet.worker[local.worker_nodepools[np_index].name].ip_range, wkr_index + 1) : null,
+      }
+    } if local.worker_nodepools[np_index].edge
+  ]...)
+
+  name                     = each.key
+  image                    = try(var.edge_runtime_image.snapshot_id, null)
+  server_type              = each.value.server_type
+  location                 = each.value.location
+  placement_group_id       = each.value.placement_group_id
+  backups                  = each.value.backups
+  keep_disk                = each.value.keep_disk
+  ssh_keys                 = [hcloud_ssh_key.this.id]
+  shutdown_before_deletion = true
+  user_data                = length(each.value.extra_networks) > 0 ? null : local.talos_user_data
+  delete_protection        = var.cluster_delete_protection
+  rebuild_protection       = var.cluster_delete_protection
+
+  labels = merge(
+    each.value.labels,
+    {
+      cluster = var.cluster_name,
+      role    = "worker"
+    }
+  )
+
+  firewall_ids = [local.firewall_id]
+
+  public_net {
+    ipv4_enabled = each.value.public_ipv4_enabled
+    ipv6_enabled = each.value.public_ipv6_enabled
+  }
+
+  network {
+    subnet_id = each.value.subnet_id
+    ip        = each.value.shared_ipv4 != null ? each.value.shared_ipv4 : each.value.ipv4_private
+    alias_ips = []
+  }
+
+  dynamic "network" {
+    for_each = each.value.extra_networks
+    content {
+      subnet_id = network.value.subnet_id
+      ip        = network.value.ip
+      alias_ips = []
+    }
   }
 
   depends_on = [
@@ -135,6 +242,10 @@ resource "hcloud_server" "worker" {
   ]
 
   lifecycle {
+    precondition {
+      condition     = var.edge_runtime_image != null && !can(regex(local.cloud_arm64_server_type_pattern, each.value.server_type))
+      error_message = "Edges require an amd64 snapshot containing the pinned edge-nat extension. Build and supply edge_runtime_image first."
+    }
     ignore_changes = [
       image,
       user_data,
@@ -817,4 +928,12 @@ data "external" "talos_member" {
     data.talos_machine_configuration.worker,
     data.talos_machine_configuration.cluster_autoscaler
   ]
+}
+
+locals {
+  worker_servers = merge(hcloud_server.worker, hcloud_server.edge)
+}
+
+resource "terraform_data" "private_node_dependencies" {
+  input = var.private_node_dependencies
 }

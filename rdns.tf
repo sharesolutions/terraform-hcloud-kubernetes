@@ -138,7 +138,7 @@ resource "hcloud_rdns" "control_plane" {
 resource "hcloud_rdns" "worker" {
   for_each = {
     for entry in flatten([
-      for server in hcloud_server.worker : [
+      for server in local.worker_servers : [
         for ip_type in concat(
           local.worker_nodepools_map[server.labels.nodepool].rdns_ipv4 != null ? ["ipv4"] : [],
           local.worker_nodepools_map[server.labels.nodepool].rdns_ipv6 != null ? ["ipv6"] : [],

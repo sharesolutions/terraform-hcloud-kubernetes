@@ -1,0 +1,8 @@
+# Local provider/cache and Helm rendering scratch
+.terraform/
+.terraform.lock.hcl
+.helm/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log

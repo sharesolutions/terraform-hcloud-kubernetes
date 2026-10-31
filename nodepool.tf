@@ -1,17 +1,23 @@
 locals {
   control_plane_nodepools = [
     for np in var.control_plane_nodepools : {
-      name        = np.name,
-      location    = np.location,
-      server_type = np.type,
-      backups     = np.backups,
-      keep_disk   = np.keep_disk,
-      rdns_ipv4 = var.talos_public_ipv4_enabled ? (
+      public_ipv4_enabled   = coalesce(np.public_ipv4_enabled, var.talos_public_ipv4_enabled)
+      public_ipv6_enabled   = coalesce(np.public_ipv6_enabled, var.talos_public_ipv6_enabled)
+      shared_ipv4_addresses = np.shared_ipv4_addresses
+      placement_group       = np.placement_group
+      placement_group_id    = np.placement_group_id
+      extra_networks        = np.extra_networks
+      name                  = np.name,
+      location              = np.location,
+      server_type           = np.type,
+      backups               = np.backups,
+      keep_disk             = np.keep_disk,
+      rdns_ipv4 = coalesce(np.public_ipv4_enabled, var.talos_public_ipv4_enabled) ? (
         np.rdns_ipv4 != null ? np.rdns_ipv4 :
         np.rdns != null ? np.rdns :
         local.cluster_rdns_ipv4
       ) : null,
-      rdns_ipv6 = var.talos_public_ipv6_enabled ? (
+      rdns_ipv6 = coalesce(np.public_ipv6_enabled, var.talos_public_ipv6_enabled) ? (
         np.rdns_ipv6 != null ? np.rdns_ipv6 :
         np.rdns != null ? np.rdns :
         local.cluster_rdns_ipv6
@@ -30,23 +36,30 @@ locals {
           { key = "node-role.kubernetes.io/control-plane", value = "", effect = "NoSchedule" }
         ]
       ),
-      count = np.count,
+      count          = np.count,
+      config_patches = np.config_patches,
     }
   ]
 
   worker_nodepools = [
     for np in var.worker_nodepools : {
-      name        = np.name,
-      location    = np.location,
-      server_type = np.type,
-      backups     = np.backups,
-      keep_disk   = np.keep_disk,
-      rdns_ipv4 = var.talos_public_ipv4_enabled ? (
+      edge                  = np.edge
+      public_ipv4_enabled   = coalesce(np.public_ipv4_enabled, var.talos_public_ipv4_enabled)
+      public_ipv6_enabled   = coalesce(np.public_ipv6_enabled, var.talos_public_ipv6_enabled)
+      shared_ipv4_addresses = np.shared_ipv4_addresses
+      placement_group_id    = np.placement_group_id
+      extra_networks        = np.extra_networks
+      name                  = np.name,
+      location              = np.location,
+      server_type           = np.type,
+      backups               = np.backups,
+      keep_disk             = np.keep_disk,
+      rdns_ipv4 = coalesce(np.public_ipv4_enabled, var.talos_public_ipv4_enabled) ? (
         np.rdns_ipv4 != null ? np.rdns_ipv4 :
         np.rdns != null ? np.rdns :
         local.cluster_rdns_ipv4
       ) : null,
-      rdns_ipv6 = var.talos_public_ipv6_enabled ? (
+      rdns_ipv6 = coalesce(np.public_ipv6_enabled, var.talos_public_ipv6_enabled) ? (
         np.rdns_ipv6 != null ? np.rdns_ipv6 :
         np.rdns != null ? np.rdns :
         local.cluster_rdns_ipv6

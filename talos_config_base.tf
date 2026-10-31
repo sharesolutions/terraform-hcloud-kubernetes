@@ -329,9 +329,9 @@ locals {
         }
       }
     ],
-    local.talos_cloud_public_link_config_patches,
-    local.talos_cloud_public_dhcp_config_patches,
-    local.talos_cloud_private_link_config_patches,
-    local.talos_cloud_private_dhcp_config_patches
+    var.per_node_network_config_enabled ? [] : local.talos_cloud_public_link_config_patches,
+    var.per_node_network_config_enabled ? [] : local.talos_cloud_public_dhcp_config_patches,
+    var.per_node_network_config_enabled ? [] : local.talos_cloud_private_link_config_patches,
+    var.per_node_network_config_enabled ? [] : local.talos_cloud_private_dhcp_config_patches
   )
 }

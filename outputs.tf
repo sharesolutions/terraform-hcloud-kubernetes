@@ -108,3 +108,24 @@ output "kube_api_load_balancer" {
     private_ipv4 = local.kube_api_load_balancer_private_ipv4
   } : null
 }
+
+output "edge_network_attachments" {
+  description = "Server attachment IDs only, independent of Kubernetes bootstrap."
+  value       = { for name, node in hcloud_server.edge : name => node.network }
+}
+
+output "edge_public_ipv4_by_location" {
+  description = "Actual Primary public IPv4 of each edge, keyed by location. Requires one edge per location."
+  value       = { for name, node in hcloud_server.edge : node.location => node.ipv4_address }
+}
+
+output "foundation_nodes" {
+  description = "Non-secret cloud node inventory for plan review."
+  value = { for name, node in merge(hcloud_server.control_plane, local.worker_servers) : name => {
+    location    = node.location
+    server_type = node.server_type
+    public_ipv4 = one(node.public_net).ipv4_enabled
+    public_ipv6 = one(node.public_net).ipv6_enabled
+    networks    = node.network
+  } }
+}

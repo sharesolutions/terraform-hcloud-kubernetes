@@ -284,20 +284,43 @@ variable "kube_api_admission_control" {
 
 variable "control_plane_nodepools" {
   type = list(object({
-    name        = string
-    location    = string
-    type        = string
-    backups     = optional(bool, false)
-    keep_disk   = optional(bool, false)
-    labels      = optional(map(string), {})
-    annotations = optional(map(string), {})
-    taints      = optional(list(string), [])
-    count       = optional(number, 1)
-    rdns        = optional(string)
-    rdns_ipv4   = optional(string)
-    rdns_ipv6   = optional(string)
+    name                  = string
+    location              = string
+    type                  = string
+    backups               = optional(bool, false)
+    keep_disk             = optional(bool, false)
+    labels                = optional(map(string), {})
+    annotations           = optional(map(string), {})
+    taints                = optional(list(string), [])
+    count                 = optional(number, 1)
+    rdns                  = optional(string)
+    rdns_ipv4             = optional(string)
+    rdns_ipv6             = optional(string)
+    public_ipv4_enabled   = optional(bool)
+    public_ipv6_enabled   = optional(bool)
+    shared_ipv4_addresses = optional(list(string), [])
+    extra_networks = optional(map(object({
+      network_id    = number
+      subnet_id     = string
+      cidr          = string
+      ip_addresses  = list(string)
+      default_route = optional(bool, false)
+    })), {})
+    config_patches     = optional(any, [])
+    placement_group_id = optional(number)
+    placement_group    = optional(bool, true)
   }))
   description = "Configures the number and attributes of Control Plane nodes."
+
+  validation {
+    condition = alltrue([for np in var.control_plane_nodepools :
+      length(np.extra_networks) <= 2 &&
+      (length(np.shared_ipv4_addresses) == 0 || length(np.shared_ipv4_addresses) == np.count) &&
+      alltrue([for net in values(np.extra_networks) : length(net.ip_addresses) == np.count]) &&
+      length([for net in values(np.extra_networks) : net if net.default_route]) <= 1
+    ])
+    error_message = "Each pool permits at most two extra Networks, one default route, and one explicit address per node."
+  }
 
   validation {
     condition     = length(var.control_plane_nodepools) == length(distinct([for np in var.control_plane_nodepools : np.name]))
@@ -362,24 +385,46 @@ variable "control_plane_config_patches" {
 # Worker
 variable "worker_nodepools" {
   type = list(object({
-    name            = string
-    location        = string
-    type            = string
-    backups         = optional(bool, false)
-    keep_disk       = optional(bool, false)
-    labels          = optional(map(string), {})
-    annotations     = optional(map(string), {})
-    taints          = optional(list(string), [])
-    count           = optional(number, 1)
-    subnet          = optional(string)
-    rdns            = optional(string)
-    rdns_ipv4       = optional(string)
-    rdns_ipv6       = optional(string)
-    placement_group = optional(bool, true)
-    config_patches  = optional(any, [])
+    name                  = string
+    location              = string
+    type                  = string
+    backups               = optional(bool, false)
+    keep_disk             = optional(bool, false)
+    labels                = optional(map(string), {})
+    annotations           = optional(map(string), {})
+    taints                = optional(list(string), [])
+    count                 = optional(number, 1)
+    subnet                = optional(string)
+    rdns                  = optional(string)
+    rdns_ipv4             = optional(string)
+    rdns_ipv6             = optional(string)
+    placement_group       = optional(bool, true)
+    config_patches        = optional(any, [])
+    public_ipv4_enabled   = optional(bool)
+    public_ipv6_enabled   = optional(bool)
+    shared_ipv4_addresses = optional(list(string), [])
+    extra_networks = optional(map(object({
+      network_id    = number
+      subnet_id     = string
+      cidr          = string
+      ip_addresses  = list(string)
+      default_route = optional(bool, false)
+    })), {})
+    placement_group_id = optional(number)
+    edge               = optional(bool, false)
   }))
   default     = []
   description = "Defines configuration settings for Worker node pools within the cluster."
+
+  validation {
+    condition = alltrue([for np in var.worker_nodepools :
+      length(np.extra_networks) <= 2 &&
+      (length(np.shared_ipv4_addresses) == 0 || length(np.shared_ipv4_addresses) == np.count) &&
+      alltrue([for net in values(np.extra_networks) : length(net.ip_addresses) == np.count]) &&
+      length([for net in values(np.extra_networks) : net if net.default_route]) <= 1
+    ])
+    error_message = "Each pool permits at most two extra Networks, one default route, and one explicit address per node."
+  }
 
   validation {
     condition     = length(var.worker_nodepools) == length(distinct([for np in var.worker_nodepools : np.name]))
@@ -2453,4 +2498,43 @@ variable "prometheus_operator_crds_version" {
   type        = string
   default     = "v0.93.1" # https://github.com/prometheus-operator/prometheus-operator
   description = "Specifies the version of the Prometheus Operator Custom Resource Definitions (CRDs) to deploy."
+}
+
+variable "per_node_network_config_enabled" {
+  type        = bool
+  default     = false
+  description = "Bind cloud private interfaces by MAC/Network ID instead of legacy global eth0/eth1 defaults."
+}
+
+variable "control_plane_image_extensions" {
+  type        = list(string)
+  default     = []
+  description = "Additional CP-only extensions, resolved for the pinned Talos release. Separate amd64 boot and upgrade images."
+  validation {
+    condition     = length(var.control_plane_image_extensions) == 0 || alltrue([for np in var.control_plane_nodepools : !startswith(np.type, "cax")])
+    error_message = "CP-only extension images currently support amd64 pools only."
+  }
+}
+
+variable "control_plane_extension_config" {
+  type        = map(list(string))
+  default     = {}
+  sensitive   = true
+  description = "Protected initial ExtensionServiceConfig YAML documents keyed by CP pool. Delivered over the cold private provisioning path."
+}
+
+variable "firewall" {
+  type        = object({ id = number })
+  default     = null
+  description = "External firewall object; unlike a computed scalar ID its presence is known during greenfield planning."
+  validation {
+    condition     = var.firewall == null || var.firewall_id == null
+    error_message = "Set firewall or firewall_id, not both."
+  }
+}
+
+variable "private_node_dependencies" {
+  type        = any
+  default     = null
+  description = "Edge-first bootstrap dependency (e.g. the location routes). Never referenced by edge server creation."
 }

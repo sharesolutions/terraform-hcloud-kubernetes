@@ -61,16 +61,16 @@ locals {
   # Lists for control plane nodes
   control_plane_public_ipv4_list  = compact(distinct([for server in hcloud_server.control_plane : server.ipv4_address]))
   control_plane_public_ipv6_list  = compact(distinct([for server in hcloud_server.control_plane : server.ipv6_address]))
-  control_plane_private_ipv4_list = compact(distinct([for server in hcloud_server.control_plane : tolist(server.network)[0].ip]))
+  control_plane_private_ipv4_list = compact(distinct([for server in hcloud_server.control_plane : one([for net in server.network : net.ip if net.network_id == local.hcloud_network_id])]))
 
   # Control plane VIPs
   control_plane_public_vip_ipv4  = local.control_plane_public_vip_ipv4_enabled ? data.hcloud_floating_ip.control_plane_ipv4[0].ip_address : null
   control_plane_private_vip_ipv4 = cidrhost(hcloud_network_subnet.control_plane.ip_range, -2)
 
   # Lists for worker nodes
-  worker_public_ipv4_list  = compact(distinct([for server in hcloud_server.worker : server.ipv4_address]))
-  worker_public_ipv6_list  = compact(distinct([for server in hcloud_server.worker : server.ipv6_address]))
-  worker_private_ipv4_list = compact(distinct([for server in hcloud_server.worker : tolist(server.network)[0].ip]))
+  worker_public_ipv4_list  = compact(distinct([for server in local.worker_servers : server.ipv4_address]))
+  worker_public_ipv6_list  = compact(distinct([for server in local.worker_servers : server.ipv6_address]))
+  worker_private_ipv4_list = compact(distinct([for server in local.worker_servers : one([for net in server.network : net.ip if net.network_id == local.hcloud_network_id])]))
 
   # Lists for bare metal nodes
   bare_metal_private_ipv4_list = compact(distinct([for server in local.bare_metal_servers : server.private_ipv4]))

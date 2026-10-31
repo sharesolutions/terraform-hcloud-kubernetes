@@ -7,7 +7,7 @@ locals {
 
   # Talos Nodes
   talos_primary_node_name         = sort(keys(hcloud_server.control_plane))[0]
-  talos_primary_node_private_ipv4 = tolist(hcloud_server.control_plane[local.talos_primary_node_name].network)[0].ip
+  talos_primary_node_private_ipv4 = one([for net in hcloud_server.control_plane[local.talos_primary_node_name].network : net.ip if net.network_id == local.hcloud_network_id])
   talos_primary_node_public_ipv4  = hcloud_server.control_plane[local.talos_primary_node_name].ipv4_address
   talos_primary_node_public_ipv6  = hcloud_server.control_plane[local.talos_primary_node_name].ipv6_address
 
@@ -99,14 +99,15 @@ resource "talos_machine_secrets" "this" {
   talos_version = var.talos_version
 
   lifecycle {
-    ignore_changes = [talos_version]
+    ignore_changes  = [talos_version]
+    prevent_destroy = true
   }
 }
 
 resource "terraform_data" "upgrade_control_plane" {
   triggers_replace = [
     var.talos_version,
-    local.talos_cloud_schematic_id
+    local.talos_control_plane_schematic_id
   ]
 
   provisioner "local-exec" {
@@ -120,14 +121,14 @@ resource "terraform_data" "upgrade_control_plane" {
       templatefile("${path.module}/templates/talos_upgrade.sh.tftpl", {
         upgrade_nodes      = local.control_plane_private_ipv4_list
         talos_version      = var.talos_version
-        talos_schematic_id = local.talos_cloud_schematic_id
+        talos_schematic_id = local.talos_control_plane_schematic_id
       }),
       "printf '%s\\n' \"Control Plane Nodes upgraded successfully\"",
     ]) : "printf '%s\\n' \"Cluster not initialized, skipping Control Plane Node upgrade\""
 
     environment = {
       TALOSCONFIG         = nonsensitive(data.talos_client_configuration.this.talos_config)
-      TALOS_UPGRADE_IMAGE = local.talos_cloud_installer_image_url
+      TALOS_UPGRADE_IMAGE = local.talos_control_plane_installer_image_url
     }
   }
 
@@ -153,7 +154,7 @@ resource "terraform_data" "upgrade_worker" {
       "printf '%s\\n' \"Start upgrading Worker Nodes\"",
       "talos_wait_for_health",
       templatefile("${path.module}/templates/talos_upgrade.sh.tftpl", {
-        upgrade_nodes      = local.worker_private_ipv4_list
+        upgrade_nodes      = [for name, node in hcloud_server.worker : one([for net in node.network : net.ip if net.network_id == local.hcloud_network_id])]
         talos_version      = var.talos_version
         talos_schematic_id = local.talos_cloud_schematic_id
       }),
@@ -297,8 +298,8 @@ resource "terraform_data" "upgrade_kubernetes" {
 resource "talos_machine_configuration_apply" "control_plane" {
   for_each = {
     for name, node in hcloud_server.control_plane : name => {
-      endpoint     = var.cluster_access == "private" ? tolist(node.network)[0].ip : coalesce(node.ipv4_address, node.ipv6_address)
-      private_ipv4 = tolist(node.network)[0].ip
+      endpoint     = var.cluster_access == "private" ? one([for net in node.network : net.ip if net.network_id == local.hcloud_network_id]) : coalesce(node.ipv4_address, node.ipv6_address)
+      private_ipv4 = one([for net in node.network : net.ip if net.network_id == local.hcloud_network_id])
     }
   }
 
@@ -307,6 +308,13 @@ resource "talos_machine_configuration_apply" "control_plane" {
   endpoint                    = each.value.endpoint
   node                        = each.value.private_ipv4
   apply_mode                  = var.talos_machine_configuration_apply_mode
+
+  lifecycle {
+    precondition {
+      condition     = !contains(var.control_plane_image_extensions, "siderolabs/cloudflared") || length(lookup(var.control_plane_extension_config, hcloud_server.control_plane[each.key].labels.nodepool, [])) > 0
+      error_message = "CP cloudflared requires protected initial ExtensionServiceConfig for every pool before machine configuration is applied."
+    }
+  }
 
   depends_on = [
     hcloud_load_balancer_service.kube_api,
@@ -353,9 +361,9 @@ resource "terraform_data" "talos_staged_configuration_reboot_control_plane" {
 
 resource "talos_machine_configuration_apply" "worker" {
   for_each = {
-    for name, node in hcloud_server.worker : name => {
-      endpoint     = var.cluster_access == "private" ? tolist(node.network)[0].ip : coalesce(node.ipv4_address, node.ipv6_address)
-      private_ipv4 = tolist(node.network)[0].ip
+    for name, node in local.worker_servers : name => {
+      endpoint     = var.cluster_access == "private" ? one([for net in node.network : net.ip if net.network_id == local.hcloud_network_id]) : coalesce(node.ipv4_address, node.ipv6_address)
+      private_ipv4 = one([for net in node.network : net.ip if net.network_id == local.hcloud_network_id])
     }
   }
 
@@ -659,8 +667,11 @@ data "http" "kube_api_health" {
 data "talos_cluster_health" "this" {
   count = var.cluster_healthcheck_enabled && (var.cluster_access == "private") ? 1 : 0
 
-  client_configuration   = talos_machine_secrets.this.client_configuration
-  endpoints              = terraform_data.talos_access_data.output.endpoints
+  client_configuration = talos_machine_secrets.this.client_configuration
+  # The provider's multi-endpoint gRPC resolver uses a comma-joined TLS
+  # authority through HTTPS CONNECT proxies. Use one endpoint for this check;
+  # control_plane_nodes and worker_nodes still cover every cluster member.
+  endpoints              = [terraform_data.talos_access_data.output.talos_primary_node]
   control_plane_nodes    = terraform_data.talos_access_data.output.control_plane_nodes
   worker_nodes           = terraform_data.talos_access_data.output.worker_nodes
   skip_kubernetes_checks = false

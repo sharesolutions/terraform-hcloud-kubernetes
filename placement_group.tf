@@ -1,6 +1,7 @@
 resource "hcloud_placement_group" "control_plane" {
-  name = "${var.cluster_name}-control-plane-pg"
-  type = "spread"
+  count = anytrue([for np in local.control_plane_nodepools : np.placement_group]) ? 1 : 0
+  name  = "${var.cluster_name}-control-plane-pg"
+  type  = "spread"
 
   labels = {
     cluster = var.cluster_name,

@@ -1,5 +1,5 @@
 locals {
-  firewall_external = var.firewall_id != null
+  firewall_external = var.firewall != null || var.firewall_id != null
 
   firewall_kube_api_source = (
     var.firewall_kube_api_source != null ?
@@ -394,7 +394,7 @@ locals {
     merge(local.firewall_extra_rules, local.firewall_rules)
   )
 
-  firewall_id                  = local.firewall_external ? var.firewall_id : hcloud_firewall.this[0].id
+  firewall_id                  = var.firewall != null ? var.firewall.id : (local.firewall_external ? var.firewall_id : hcloud_firewall.this[0].id)
   current_ipv4_lookup_required = local.firewall_use_current_ipv4 || local.bare_metal_firewall_talos_api_use_current_ipv4
   current_ipv6_lookup_required = local.firewall_use_current_ipv6 || local.bare_metal_firewall_talos_api_use_current_ipv6
 }
