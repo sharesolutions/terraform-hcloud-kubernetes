@@ -785,7 +785,7 @@ variable "talos_cloud_arm64_image_selector" {
 # Talos
 variable "talos_version" {
   type        = string
-  default     = "v1.13.10" # https://github.com/siderolabs/talos
+  default     = "v1.13.11" # https://github.com/siderolabs/talos
   description = "Specifies the version of Talos to be used in generated machine configurations."
 }
 
@@ -1202,7 +1202,7 @@ variable "talos_backup_schedule" {
 # Kubernetes
 variable "kubernetes_version" {
   type        = string
-  default     = "v1.34.11" # https://github.com/kubernetes/kubernetes
+  default     = "v1.34.12" # https://github.com/kubernetes/kubernetes
   description = "Specifies the Kubernetes version to deploy."
 }
 
@@ -1570,7 +1570,7 @@ variable "hcloud_ccm_helm_chart" {
 
 variable "hcloud_ccm_helm_version" {
   type        = string
-  default     = "1.36.0"
+  default     = "1.38.0"
   description = "Version of the Hcloud CCM Helm chart to deploy."
 }
 
@@ -1825,7 +1825,7 @@ variable "cilium_helm_chart" {
 
 variable "cilium_helm_version" {
   type        = string
-  default     = "1.20.1"
+  default     = "1.20.2"
   description = "Version of the Cilium Helm chart to deploy."
 }
 
@@ -2451,6 +2451,6 @@ variable "prometheus_operator_crds_enabled" {
 
 variable "prometheus_operator_crds_version" {
   type        = string
-  default     = "v0.93.1" # https://github.com/prometheus-operator/prometheus-operator
+  default     = "v0.94.1" # https://github.com/prometheus-operator/prometheus-operator
   description = "Specifies the version of the Prometheus Operator Custom Resource Definitions (CRDs) to deploy."
 }

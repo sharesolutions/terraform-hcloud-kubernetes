@@ -816,17 +816,6 @@ spec:
           port: 8080
 ```
 
-> ⚠️ **Important:** When using PROXY protocol with Cilium Gateway API (enabled by default), external IPv6 connections will not work due to a bug in Cilium’s Gateway API implementation: [https://github.com/cilium/cilium/issues/42950](https://github.com/cilium/cilium/issues/42950)
-> 
-> If you need IPv6, disable PROXY protocol by adding the `load-balancer.hetzner.cloud/uses-proxyprotocol: "false"` infrastructure annotation and setting this module config:
-> ```
-> cilium_gateway_api_proxy_protocol_enabled = false
-> ```
-> After applying the module config, you may need to restart Cilium to pick up the change:
-> ```shell
-> kubectl -n kube-system rollout restart deployment/cilium-operator
-> ```
-
 </details>
 
 <!-- Ingress Load Balancer -->
@@ -1443,7 +1432,7 @@ If you'd like to support this project, please consider leaving a ⭐ on GitHub!<
 <!-- sponsors-highlighted --><!-- sponsors-highlighted -->
 </p>
 <p align="center">
-<!-- sponsors --><a href="https://github.com/jonakoudijs"><img src="https://github.com/jonakoudijs.png" width="80px" alt="Jona Koudijs" /></a>&nbsp;&nbsp;<a href="https://liberapay.com/devXY"><img src="https://seccdn.libravatar.org/avatar/b6dddcd2f3a8097b0f1e148d14ebd1c4?s=160&amp;d=404&amp;=1" width="80px" alt="devXY" /></a>&nbsp;&nbsp;<a href="https://github.com/paperclipinc"><img src="https://github.com/paperclipinc.png" width="80px" alt="Paperclip.inc" /></a>&nbsp;&nbsp;<a href="https://github.com/lukasgabriel"><img src="https://github.com/lukasgabriel.png" width="80px" alt="Lukas Gabriel" /></a>&nbsp;&nbsp;<!-- sponsors -->
+<!-- sponsors --><a href="https://github.com/jonakoudijs"><img src="https://github.com/jonakoudijs.png" width="80px" alt="Jona Koudijs" /></a>&nbsp;&nbsp;<a href="https://liberapay.com/devXY"><img src="https://seccdn.libravatar.org/avatar/b6dddcd2f3a8097b0f1e148d14ebd1c4?s=160&amp;d=404&amp;=1" width="80px" alt="devXY" /></a>&nbsp;&nbsp;<a href="https://github.com/paperclipinc"><img src="https://github.com/paperclipinc.png" width="80px" alt="Paperclip.inc" /></a>&nbsp;&nbsp;<a href="https://github.com/lukasgabriel"><img src="https://github.com/lukasgabriel.png" width="80px" alt="Lukas Gabriel" /></a>&nbsp;&nbsp;<a href="https://github.com/Dual-0"><img src="https://github.com/Dual-0.png" width="80px" alt="Oli Oeli" /></a>&nbsp;&nbsp;<!-- sponsors -->
 </p>
 
 Your sponsorship supports the ongoing development, improvement, and maintenance of this project 🙏
