@@ -4,7 +4,7 @@
   <h1>Hcloud Kubernetes</h1>
 
   <p>
-    Terraform Module to deploy Kubernetes on Hetzner Cloud! 
+    Terraform Module to deploy Kubernetes on Hetzner Cloud!
   </p>
 
 <!-- Badges -->
@@ -273,43 +273,72 @@ bare_metal_nodepools = [
 ]
 ```
 
-Example with an existing vSwitch and an explicit install disk:
-```hcl
-hcloud_vswitch_id = 12345
-
-bare_metal_nodepools = [
-  {
-    name         = "bare-metal"
-    architecture = "amd64"
-    servers = [
-      { number = 1234567, private_ipv4 = "10.0.88.2", install_disk = "ata-Samsung_SSD_870_ABC123" }
-    ]
-  }
-]
-```
-
 #### vSwitch Network
 
-The module creates the vSwitch and connects it to the Hetzner Cloud Network.
+The module creates the vSwitch and connects it to the Hetzner Cloud Network. To use an existing vSwitch instead, set:
+
+```hcl
+hcloud_vswitch_id = 12345
+```
 
 Each server needs a unique `private_ipv4` from the vSwitch subnet. For the default `10.0.0.0/16` network, the bare metal subnet can also be calculated with:
+
 ```sh
-echo 'cidrsubnet("10.0.0.0/16", 9, 176)' | tofu console
+echo "cidrsubnet(\"10.0.0.0/16\", 9, 176)" | tofu console
 "10.0.88.0/25"
 ```
 
 When bare metal servers are enabled for the first time, Cilium might need to be restarted to pick up the changed routing mode:
+
 ```sh
 kubectl -n kube-system rollout restart ds/cilium ds/cilium-envoy
 kubectl -n kube-system rollout restart deploy/cilium-operator
 ```
 
-#### Install Disk
+#### Install Disks and RAID
 
-If `install_disk` is omitted, the module automatically selects the first eligible non-removable disk. If set, `install_disk` must be a disk ID from `/dev/disk/by-id`.
+If `install_disks` and `install_raid_level` are omitted, the module automatically selects the first eligible non-removable disk. Explicit `install_disks` values must be disk IDs from `/dev/disk/by-id`:
 
-> [!WARNING]
-> Installing Talos is destructive. The selected install disk is discarded before Talos is written, and all other eligible install disks are wiped. Existing data on those disks is lost.
+```hcl
+servers = [
+  {
+    number        = 1234567
+    private_ipv4  = "10.0.88.2"
+    install_disks = ["ata-Samsung_SSD_870_ABC123"]
+  }
+]
+```
+
+Setting `install_raid_level` to `raid1` creates a bootable Linux MD RAID1 array with metadata format `1.0`. RAID1 requires at least two disks, and specifying multiple installation disks without `install_raid_level` is rejected.
+
+List the RAID members explicitly:
+
+```hcl
+servers = [
+  {
+    number             = 1234567
+    private_ipv4       = "10.0.88.2"
+    install_disks      = ["nvme-disk-1", "nvme-disk-2"]
+    install_raid_level = "raid1"
+  }
+]
+```
+
+Alternatively, omit `install_disks` to include every eligible disk automatically:
+
+```hcl
+servers = [
+  {
+    number             = 1234567
+    private_ipv4       = "10.0.88.2"
+    install_raid_level = "raid1"
+  }
+]
+```
+
+`preserve_other_disks` defaults to `false`. Set it to `true` on an individual server to preserve eligible disks that are not used for the Talos installation or RAID.
+
+> ⚠️ **Warning:** Installing Talos is destructive. By default, every eligible disk is wiped to prevent the server from booting a previous installation, and all data on those disks is lost. Preserved disks can still contain bootable installations, so the firmware might boot from them. RAID configuration is used only during initial provisioning; changing it does not reprovision existing servers.
 
 </details>
 
@@ -469,7 +498,6 @@ The module installs a curated set of Kubernetes components through Talos manifes
 | Cert Manager Hetzner Webhook | `cert_manager_webhook_hetzner_enabled` | `false` |
 | Cilium Gateway API           | `cilium_gateway_api_enabled`           | `false` |
 | Cluster Autoscaler           | `cluster_autoscaler_enabled`           | `false` |
-| Ingress NGINX (deprecated)   | `ingress_nginx_enabled`                | `false` |
 | Longhorn                     | `longhorn_enabled`                     | `false` |
 
 
@@ -527,7 +555,7 @@ More information can be found in [the Cilium docs.](https://docs.cilium.io/en/st
 
 #### Cilium Transparent Encryption
 
-This module enables [Cilium Transparent Encryption](https://cilium.io/use-cases/transparent-encryption/) feature by default.  
+This module enables [Cilium Transparent Encryption](https://cilium.io/use-cases/transparent-encryption/) feature by default.
 
 All pod network traffic is encrypted using WireGuard (Default) or  protocols, includes automatic key rotation and efficient in-kernel encryption, covering all traffic types.
 
@@ -620,8 +648,8 @@ By default, a firewall is configured that can be extended with custom rules. If 
 Each rule is defined with the following properties:
 - `description`: A brief description of the rule.
 - `direction`: The direction of traffic (`in` for inbound, `out` for outbound).
-- `source_ips`: A list of source IP addresses for outbound rules.
-- `destination_ips`: A list of destination IP addresses for inbound rules.
+- `source_ips`: A list of source IP addresses for inbound rules.
+- `destination_ips`: A list of destination IP addresses for outbound rules.
 - `protocol`: The protocol used (valid options: `tcp`, `udp`, `icmp`, `gre`, `esp`).
 - `port`: The port number (required for `tcp` and `udp` protocols, must not be specified for `icmp`, `gre`, and `esp`).
 
@@ -818,61 +846,120 @@ spec:
 
 </details>
 
-<!-- Ingress Load Balancer -->
+<!-- Hcloud CSI -->
 <details>
-<summary><b>Ingress Load Balancer</b></summary>
+<summary><b>Hcloud CSI</b></summary>
 
-The ingress controller uses a default load balancer service to manage external traffic. For geo-redundancy and high availability, `ingress_load_balancer_pools` can be configured as an alternative, replacing the default load balancer with the specified pool of load balancers.
+The Hetzner Cloud Container Storage Interface (CSI) driver can be flexibly configured through the `hcloud_csi_storage_classes` variable. You can define multiple storage classes for your cluster:
 
-##### Configuring Load Balancer Pools
-To replace the default load balancer, use `ingress_load_balancer_pools` in the Terraform configuration. This setup ensures high availability and geo-redundancy by distributing traffic from various locations across all targets in all regions.
+* **name:** The name of the StorageClass (string, required).
+* **encrypted:** Enable LUKS encryption for volumes (bool, required).
+* **defaultStorageClass:** Set this class as the default (optional, bool, defaults to `false`).
+* **reclaimPolicy:** The Kubernetes reclaim policy (`Delete` or `Retain`, optional, defaults to `Delete`).
+* **extraParameters:** Additional parameters for the StorageClass (optional map).
 
-Example `kubernetes.tf` configuration:
+**Example:**
+
 ```hcl
-ingress_load_balancer_pools = [
+hcloud_csi_storage_classes = [
   {
-    name     = "lb-nbg"
-    location = "nbg1"
-    type     = "lb11"
+    name                = "hcloud-volumes"
+    encrypted           = false
+    defaultStorageClass = true
   },
   {
-    name     = "lb-fsn"
-    location = "fsn1"
-    type     = "lb11"
+    name                = "hcloud-volumes-encrypted-xfs"
+    encrypted           = true
+    reclaimPolicy       = "Retain"
+    extraParameters     = {
+      "csi.storage.k8s.io/fstype" = "xfs"
+      "fsFormatOption"            = "-i nrext64=1"
+    }
   }
 ]
 ```
 
-##### Local Traffic Optimization
-Configuring local traffic handling enhances network efficiency by reducing latency. Processing traffic closer to its source eliminates unnecessary routing delays, ensuring consistent performance for low-latency or region-sensitive applications.
+**Other settings:**
 
-Example `kubernetes.tf` configuration:
-```hcl
-ingress_nginx_kind = "DaemonSet"
-ingress_nginx_service_external_traffic_policy = "Local"
+* **hcloud\_csi\_encryption\_passphrase:**
+  Optionally provide a custom encryption passphrase for LUKS-encrypted storage classes.
 
-ingress_load_balancer_pools = [
-  {
-    name          = "regional-lb-nbg"
-    location      = "nbg1"
-    local_traffic = true
-  },
-  {
-    name          = "regional-lb-fsn"
-    location      = "fsn1"
-    local_traffic = true
-  }
-]
-```
+  ```hcl
+  hcloud_csi_encryption_passphrase = "<secret-passphrase>"
+  ```
 
-Key settings in this configuration:
-- `local_traffic`: Limits load balancer targets to nodes in the same geographic location as the load balancer, reducing data travel distances and keeping traffic within the region.
-- `ingress_nginx_service_external_traffic_policy` set to `Local`: Ensures external traffic is handled directly on the local node, avoiding extra network hops.
-- `ingress_nginx_kind` set to `DaemonSet`: Deploys an ingress controller instance on every node, enabling requests to be handled locally for faster response times.
+**Storage Class Immutability:**
+StorageClasses created by the Hcloud CSI driver are immutable. To change parameters after creation, you must either edit the StorageClass directly with `kubectl`, or delete it from both Terraform state and Kubernetes, then let this module recreate it.
 
-Topology-aware routing in ingress-nginx can optionally be enabled by setting the `ingress_nginx_topology_aware_routing` variable to `true`. This functionality routes traffic to the nearest upstream endpoints, enhancing efficiency for supported services. Note that this feature is only applicable to services that support topology-aware routing. For more information, refer to the [Kubernetes documentation](https://kubernetes.io/docs/concepts/services-networking/topology-aware-routing/).
+For more details, see the [HCloud CSI Driver documentation](https://github.com/hetznercloud/csi-driver/tree/main/docs/kubernetes).
 
 </details>
+
+
+<!-- IPv6 Pod Networking -->
+<details>
+<summary><b>IPv6 Pod Networking</b></summary>
+
+**⚠️ Experimental:** IPv6 Pod networking is opt-in. [Hetzner Private Networks](https://docs.hetzner.com/networking/networks/faq/) currently support only IPv4. When you enable IPv6 Pod networking with the CIDRs below and leave the routing settings unchanged, Cilium carries IPv6 Pod traffic between nodes through its IPv4 VXLAN overlay, and the module disables the Hetzner Cloud CCM Route Controller. For Internet egress, [Cilium's IPv6 eBPF masquerading](https://docs.cilium.io/en/stable/network/concepts/masquerading/#e-bpf-based) translates each Pod's IPv6 source address to its node's public IPv6 address. This NAT feature is beta, so dual-stack Pod networking is not supported for production use by this module.
+
+To try it on a new cluster, provide separate IPv6 Pod and Service CIDRs:
+
+```hcl
+network_pod_ipv6_cidr     = "fd42:6:175::/56"
+network_service_ipv6_cidr = "fd42:6:176::/112"
+```
+
+Choose unique IPv6 CIDRs for your cluster. Kubernetes allocates a `/64` Pod CIDR per node from the Pod range. Cilium carries both IPv4 and IPv6 Pod traffic over its IPv4 VXLAN tunnel. Hetzner Cloud CCM still manages nodes and load balancers. IPv6 Internet egress uses each node's public IPv6 address, so keep `talos_public_ipv6_enabled = true`.
+
+**⚠️ Existing clusters:** Enabling IPv6 Pod networking on an existing IPv4-only cluster requires additional migration steps and may disrupt Pod networking. Only do this if you know exactly what you are doing.
+
+</details>
+
+
+<!-- Longhorn -->
+<details>
+<summary><b>Longhorn</b></summary>
+
+Longhorn is a lightweight, reliable, and easy-to-use distributed block storage system for Kubernetes.
+It is fully independent from the Hetzner Cloud CSI driver.
+
+You can enable Longhorn and configure it as the default StorageClass for your cluster via module variables:
+
+* **Enable Longhorn:**
+  Set `longhorn_enabled` to `true` to deploy Longhorn in your cluster.
+
+* **Default StorageClass:**
+  Set `longhorn_default_storage_class` to `true` if you want Longhorn to be the default StorageClass.
+
+**Example:**
+
+```hcl
+longhorn_enabled               = true
+longhorn_default_storage_class = true
+```
+
+**Migrating existing Longhorn disks from `/var/lib/longhorn` to `/var/mnt/longhorn`:**
+
+Starting with module version 6, this module follows the [Longhorn guidance for Talos Linux v1.10 and later](https://longhorn.io/docs/1.13.0/advanced-resources/os-distro-specific/talos-linux-support/#from-talos-linux-v110x-onwards), which recommends `UserVolumeConfig` and `/var/mnt/longhorn` instead of the legacy `/var/lib/longhorn` data path. Existing disks are not migrated automatically, so version 6 keeps the legacy path available for a rolling migration. Clusters created with an earlier module version must complete this migration before upgrading to module version 7 or higher.
+
+1. Back up your volumes, verify that all volumes and replicas are healthy, and ensure that other storage nodes have enough capacity for one node's replicas.
+2. Upgrade to module version 6. It creates `/var/mnt/longhorn` and uses it for new Longhorn disks while keeping existing `/var/lib/longhorn` disks available.
+3. Migrate each storage node separately:
+   1. In the Longhorn UI, open **Node**.
+   2. Select the node and choose **Edit Node and Disks** from the action menu.
+   3. Find the disk with the `/var/lib/longhorn` path. Note any custom storage reservation or tags that must be retained.
+   4. Set **Scheduling** to **Disable**, set **Eviction Requested** to `true`, and save.
+   5. Wait until the disk shows `0` replicas and no backing images. Do not remove the disk before eviction finishes.
+   6. Open **Edit Node and Disks** again, remove the `/var/lib/longhorn` disk, and save.
+   7. Add a filesystem disk with the `/var/mnt/longhorn` path, restore any custom storage reservation or tags, enable scheduling, and save.
+   8. Wait until the new disk is ready and all volumes are healthy before migrating the next node.
+
+Do not enable scheduling on both paths of the same node at once. They share the node's `EPHEMERAL` filesystem, so Longhorn would count the same capacity twice. Complete the migration before upgrading to module version 7 or higher, which will remove the legacy `/var/lib/longhorn` mount.
+
+For more information about Longhorn, see the [Longhorn documentation](https://longhorn.io/docs/).
+
+</details>
+
 
 <!-- Network Segmentation -->
 <details>
@@ -919,81 +1006,6 @@ Here is a table with more example calculations:
 | **10.0.0.0/19** | /28 (16 IPs)     | 10.0.8.0/22  (64) | 10.0.12.0/22 (1024) | 10.0.16.0/20 (16)   |
 | **10.0.0.0/20** | /29 (8 IPs)      | 10.0.4.0/23  (64) | 10.0.6.0/23 (512)   | 10.0.8.0/21 (8)     |
 | **10.0.0.0/21** | /30 (4 IPs)      | 10.0.2.0/24  (64) | 10.0.3.0/24 (256)   | 10.0.4.0/22 (4)     |
- 
-</details>
-
-
-<!-- Storage Configuration-->
-<details>
-<summary><b>Storage Configuration</b></summary>
-
-#### Hetzner Cloud CSI
-
-The Hetzner Cloud Container Storage Interface (CSI) driver can be flexibly configured through the `hcloud_csi_storage_classes` variable. You can define multiple storage classes for your cluster:
-
-* **name:** The name of the StorageClass (string, required).
-* **encrypted:** Enable LUKS encryption for volumes (bool, required).
-* **defaultStorageClass:** Set this class as the default (optional, bool, defaults to `false`).
-* **reclaimPolicy:** The Kubernetes reclaim policy (`Delete` or `Retain`, optional, defaults to `Delete`).
-* **extraParameters:** Additional parameters for the StorageClass (optional map).
-
-**Example:**
-
-```hcl
-hcloud_csi_storage_classes = [
-  {
-    name                = "hcloud-volumes"
-    encrypted           = false
-    defaultStorageClass = true
-  },
-  {
-    name                = "hcloud-volumes-encrypted-xfs"
-    encrypted           = true
-    reclaimPolicy       = "Retain"
-    extraParameters     = {
-      "csi.storage.k8s.io/fstype" = "xfs"
-      "fsFormatOption"            = "-i nrext64=1"
-    }
-  }
-]
-```
-
-**Other settings:**
-
-* **hcloud\_csi\_encryption\_passphrase:**
-  Optionally provide a custom encryption passphrase for LUKS-encrypted storage classes.
-
-  ```hcl
-  hcloud_csi_encryption_passphrase = "<secret-passphrase>"
-  ```
-
-**Storage Class Immutability:**
-StorageClasses created by the Hcloud CSI driver are immutable. To change parameters after creation, you must either edit the StorageClass directly with `kubectl`, or delete it from both Terraform state and Kubernetes, then let this module recreate it.
-
-For more details, see the [HCloud CSI Driver documentation](https://github.com/hetznercloud/csi-driver/tree/main/docs/kubernetes).
-
-
-#### Longhorn
-
-Longhorn is a lightweight, reliable, and easy-to-use distributed block storage system for Kubernetes.
-It is fully independent from the Hetzner Cloud CSI driver.
-
-You can enable Longhorn and configure it as the default StorageClass for your cluster via module variables:
-
-* **Enable Longhorn:**
-  Set `longhorn_enabled` to `true` to deploy Longhorn in your cluster.
-
-* **Default StorageClass:**
-  Set `longhorn_default_storage_class` to `true` if you want Longhorn to be the default StorageClass.
-
-**Example:**
-
-```hcl
-longhorn_enabled               = true
-longhorn_default_storage_class = true
-```
-
-For more information about Longhorn, see the [Longhorn documentation](https://longhorn.io/docs/).
 
 </details>
 
@@ -1100,33 +1112,51 @@ talos_cloud_arm64_image_selector      = "latest"
 <details>
 <summary><b>Talos Discovery Service</b></summary>
 
-Talos supports two node discovery mechanisms:
+Talos uses the public discovery service operated by Sidero Labs to discover cluster members, including when Kubernetes is unavailable. Nodes require outbound access to TCP port 443 to use it.
 
-- **Discovery Service Registry** (default): A public, external registry operated by Sidero Labs that works even when Kubernetes is unavailable. Nodes must have outbound access to TCP port 443 to communicate with it.  
-- **Kubernetes Registry**: Relies on Kubernetes Node metadata stored in etcd.
-
-This module uses the discovery service to perform additional health checks during Talos upgrades, Kubernetes upgrades, and Kubernetes manifest synchronization. If no discovery mechanism is enabled, these additional checks will be skipped.
-
-> ⚠️ **Important:** Kubernetes-based discovery is **incompatible by default** with Kubernetes **v1.32+** due to the `AuthorizeNodeWithSelectors` feature gate, which restricts access to Node metadata. This can cause broken discovery behavior, such as failing or incomplete results from `talosctl health` or `talosctl get members`.
-
-##### Example Configuration
+The service is enabled by default and can be disabled with:
 
 ```hcl
-# Disable Kubernetes-based discovery (deprecated in Kubernetes >= 1.32)
-talos_kubernetes_discovery_service_enabled = false
-
-# Enable the external Sidero Labs discovery service (default)
-talos_siderolabs_discovery_service_enabled = true
+talos_discovery_service_enabled = false
 ```
 
 For more details, refer to the [official Talos discovery guide](https://www.talos.dev/latest/talos-guides/discovery/).
+</details>
+
+<!-- Talos Tailscale -->
+<details>
+<summary><b>Talos Tailscale</b></summary>
+
+The module can install and configure the [Talos Tailscale system extension](https://github.com/siderolabs/extensions/tree/main/network/tailscale) on every control plane, worker, Cluster Autoscaler, and bare metal node:
+
+```hcl
+talos_tailscale_enabled  = true
+talos_tailscale_auth_key = var.tailscale_auth_key
+```
+
+The module leaves containerboot defaults unchanged: Tailscale does not accept tailnet DNS settings and reruns `tailscale up` on each start. Additional settings can be supplied as `KEY=VALUE` entries:
+
+```hcl
+talos_tailscale_environment = [
+  "TS_EXTRA_ARGS=--advertise-tags=tag:kubernetes",
+]
+```
+
+`TS_AUTH_ONCE=true` avoids repeat login when state persists, but later changes to `TS_EXTRA_ARGS` are not reapplied. Use it only if that trade-off is acceptable.
+
+The module leaves Cilium device selection unchanged. In testing, Cilium auto-detected `tailscale0`, used an MTU of 1280, and allowed pods to reach other nodes over Tailscale. Restricting Cilium to `eth+` or excluding `tailscale0` raised the MTU to 1450 but blocked that pod-to-tailnet traffic. If the lower MTU causes bandwidth problems, evaluate `cilium_helm_values.devices` for your network and test the traffic your workloads need.
+
+If you also use [the Tailscale Kubernetes Operator](https://tailscale.com/docs/kubernetes-operator/reference/compatibility) to expose Services or a Service CIDR while Cilium replaces kube-proxy, ensure socket load balancing is bypassed in pod namespaces. Set `cilium_socket_lb_host_namespace_only_enabled = true` unless Cilium Gateway API already enables this setting. The Talos node extension alone does not require it.
+
+If `talos_schematic_id` is set, its custom schematic must already contain `siderolabs/tailscale`, because the module cannot modify a supplied schematic. The auth key is sensitive, but it is necessarily stored in Terraform state and the rendered Talos machine configuration.
+
 </details>
 
 <!-- Kubernetes RBAC -->
 <details>
 <summary><b>Kubernetes RBAC</b></summary>
 
-This module allows you to create custom Kubernetes RBAC (Role-Based Access Control) roles and cluster roles that define specific permissions for users and groups. RBAC controls what actions users can perform on which Kubernetes resources.  
+This module allows you to create custom Kubernetes RBAC (Role-Based Access Control) roles and cluster roles that define specific permissions for users and groups. RBAC controls what actions users can perform on which Kubernetes resources.
 These custom roles can be used independently or combined with OIDC group mappings to automatically assign permissions based on user group membership from your identity provider.
 
 #### Example Configuration
@@ -1172,35 +1202,37 @@ rbac_roles = [
 <details>
 <summary><b>OIDC Cluster Authentication</b></summary>
 
-The Kubernetes API server supports OIDC (OpenID Connect) authentication, allowing integration with external identity providers like Keycloak, Auth0, Authentik, Zitadel, etc.
+The Kubernetes API server supports OIDC (OpenID Connect) authentication, allowing integration with one or more external identity providers like Keycloak, Auth0, Authentik, Zitadel, etc.
 When enabled, users can authenticate using their existing organizational credentials instead of managing separate Kubernetes certificates or tokens.
 
 OIDC authentication works by validating JWT tokens issued by your identity provider, extracting user information and group memberships, and mapping them to Kubernetes RBAC roles.
+Each issuer must be unique. Configure multiple clients from the same issuer as audiences of a single provider. The module automatically configures `MatchAny` when a provider has multiple audiences.
 
 #### Example Configuration
 
 ```hcl
-# OIDC Configuration
-oidc_enabled        = true                               # Enable OIDC authentication
-oidc_issuer_url     = "https://your-oidc-provider.com"   # Your OIDC provider issuer URL
-oidc_client_id      = "your-client-id"                   # Client ID registered in your OIDC provider
-oidc_username_claim = "preferred_username"               # OIDC JWT claim to extract username from
-oidc_groups_claim   = "groups"                           # OIDC JWT claim to extract user groups from
-oidc_groups_prefix  = "oidc:"                            # Prefix added to group names in K8s to avoid conflicts
+kube_api_oidc_providers = [
+  {
+    issuer_url     = "https://keycloak.example.com/realms/example"
+    audiences      = ["kubectl", "headlamp"]
+    username_claim = "preferred_username"
+    groups_claim   = "groups"
+    groups_prefix  = "oidc:"
 
-# Map OIDC groups to Kubernetes roles and cluster roles
-oidc_group_mappings = [                                  # List of OIDC group mappings
-  {
-    group         = "cluster-admins-group"               # OIDC provider group name
-    cluster_roles = ["cluster-admin"]                    # Grant cluster-admin access
-  },
-  {
-    group         = "developers-group"                   # OIDC provider group name
-    cluster_roles = ["view"]                             # Grant cluster-wide view access
-    roles = [                                            # Grant namespace scoped roles
+    group_mappings = [
       {
-        name      = "developer-role"                     # Custom role name
-        namespace = "development"                        # Namespace where role applies
+        group         = "cluster-admins-group"
+        cluster_roles = ["cluster-admin"]
+      },
+      {
+        group         = "developers-group"
+        cluster_roles = ["view"]
+        roles = [
+          {
+            name      = "developer-role"
+            namespace = "development"
+          }
+        ]
       }
     ]
   }
@@ -1232,7 +1264,7 @@ First, verify that your OIDC provider is returning proper JWT tokens. Replace th
 kubectl oidc-login setup \
   --oidc-issuer-url=https://your-oidc-provider.com \
   --oidc-client-id=your-client-id \
-  --oidc-client-secret=your-client-secret \           
+  --oidc-client-secret=your-client-secret \
   --oidc-extra-scope=openid,email,profile             # Add or change the scopes according to your IDP
 ```
 
@@ -1357,7 +1389,7 @@ The table below lists the Talos and Kubernetes versions used by each Hcloud K8s 
 | Hcloud K8s | Talos Linux | Kubernetes |
 | :--------: | :---------: | :--------: |
 |  **(7)**   |   (1.15)    |    1.36    |
-|  **(6)**   |    1.14     |    1.35    |
+|   **6**    |    1.14     |    1.35    |
 |   **5**    |    1.13     |    1.34    |
 <!--
 |   **4**    |    1.12     |    1.33    |
@@ -1402,11 +1434,11 @@ Changing software versions manually is not recommended. Component versions are s
 
 <!-- Roadmap -->
 ### 🧭 Roadmap
-* [ ] **Ingress NGINX [Retirement in March 2026](https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/)**<br>
+* [x] **Ingress NGINX [Retirement in March 2026](https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/)**<br>
   * [x] Add general support for Gateway API
   * [x] Integrate Cilium Gateway API
   * [x] Deprecate Ingress NGINX in v4
-  * [ ] Remove Ingress NGINX in v6
+  * [x] Remove Ingress NGINX in v6
 * [x] **Support for Hetzner [Dedicated Bare Metal Servers](https://www.hetzner.com/de/dedicated-rootserver/)**
 
 <!-- Support this Project -->
