@@ -37,7 +37,7 @@ resource "terraform_data" "control_plane_image" {
     working_dir = "${path.module}/packer/"
     command = join(" ", [
       "${length(data.hcloud_images.control_plane[0].images) > 0} ||",
-      "packer build -force",
+      "packer build",
       "-var 'cluster_name=${var.cluster_name}'",
       "-var 'server_type=${var.packer_amd64_builder.server_type}'",
       "-var 'server_location=${var.packer_amd64_builder.server_location}'",

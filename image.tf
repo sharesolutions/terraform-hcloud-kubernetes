@@ -249,7 +249,7 @@ resource "terraform_data" "amd64_image" {
     command = join(" ",
       [
         "${length(data.hcloud_images.amd64[0].images) > 0} ||",
-        "packer build -force",
+        "packer build",
         "-var 'cluster_name=${var.cluster_name}'",
         "-var 'server_type=${var.packer_amd64_builder.server_type}'",
         "-var 'server_location=${var.packer_amd64_builder.server_location}'",
@@ -286,7 +286,7 @@ resource "terraform_data" "arm64_image" {
     command = join(" ",
       [
         "${length(data.hcloud_images.arm64[0].images) > 0} ||",
-        "packer build -force",
+        "packer build",
         "-var 'cluster_name=${var.cluster_name}'",
         "-var 'server_type=${var.packer_arm64_builder.server_type}'",
         "-var 'server_location=${var.packer_arm64_builder.server_location}'",

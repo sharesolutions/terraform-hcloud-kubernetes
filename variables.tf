@@ -1040,6 +1040,12 @@ variable "talos_kernel_modules" {
   description = "Defines a list of kernel modules to be loaded during system boot, along with optional parameters for each module. This allows for customized kernel behavior in the Talos environment."
 }
 
+variable "talos_worker_configuration_via_control_plane" {
+  description = "Proxy worker configuration updates through the primary control-plane Talos API after cluster initialization. Initial installation still connects directly to each worker."
+  type        = bool
+  default     = false
+}
+
 variable "talos_machine_configuration_apply_mode" {
   type        = string
   default     = "auto"

@@ -32,7 +32,7 @@ source "hcloud" "talos_amd64_image" {
 
   temporary_key_pair_type = "ed25519"
 
-  snapshot_name = "Talos Linux AMD64 for ${var.cluster_name}"
+  snapshot_name = "Talos ${var.talos_version} AMD64 ${substr(var.talos_schematic_id, 0, 32)} for ${var.cluster_name}"
   snapshot_labels = {
     cluster            = var.cluster_name,
     os                 = "talos",

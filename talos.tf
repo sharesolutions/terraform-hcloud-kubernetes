@@ -370,7 +370,7 @@ resource "talos_machine_configuration_apply" "worker" {
 
   client_configuration        = talos_machine_secrets.this.client_configuration
   machine_configuration_input = data.talos_machine_configuration.worker[each.key].machine_configuration
-  endpoint                    = each.value.endpoint
+  endpoint                    = var.talos_worker_configuration_via_control_plane && local.cluster_initialized ? local.talos_primary_endpoint : each.value.endpoint
   node                        = each.value.private_ipv4
   apply_mode                  = var.talos_machine_configuration_apply_mode
 
