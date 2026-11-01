@@ -81,7 +81,15 @@ data "talos_machine_configuration" "worker" {
     var.per_node_network_config_enabled ? local.cloud_node_network_patches[each.key] : [],
     [for patch in local.worker_talos_config_patches[each.key] : yamlencode(patch)],
     contains(keys(hcloud_server.edge), each.key) && var.edge_runtime_image != null ? [
-      yamlencode(merge({ apiVersion = "v1alpha1", kind = "UnattendedInstallConfig" }, var.edge_runtime_image.installer == null ? { "$patch" = "delete" } : { installer = { image = var.edge_runtime_image.installer } }))
+      var.edge_runtime_image.installer == null ? yamlencode({
+        apiVersion = "v1alpha1"
+        kind       = "UnattendedInstallConfig"
+        "$patch"   = "delete"
+        }) : yamlencode({
+        apiVersion = "v1alpha1"
+        kind       = "UnattendedInstallConfig"
+        installer  = { image = var.edge_runtime_image.installer }
+      })
     ] : [],
     [for patch in var.worker_config_patches : yamlencode(patch)],
     [
