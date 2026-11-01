@@ -464,6 +464,15 @@ locals {
     local.talos_discovery_service_config_patches
   )
 
+  # Reuse the full provisioning block when overriding the installer. Talos
+  # multi-document patch decoding supplies an empty selector for omitted fields.
+  talos_cloud_install_provisioning = {
+    diskSelector = {
+      match = "disk.dev_path == \"/dev/sda\""
+    }
+    wipe = false
+  }
+
   talos_cloud_config_patches = concat(
     local.talos_common_config_patches,
     [
@@ -473,12 +482,7 @@ locals {
         installer = {
           image = local.talos_cloud_installer_image_url
         }
-        provisioning = {
-          diskSelector = {
-            match = "disk.dev_path == \"/dev/sda\""
-          }
-          wipe = false
-        }
+        provisioning = local.talos_cloud_install_provisioning
       }
     ],
     var.per_node_network_config_enabled ? [] : local.talos_cloud_public_link_config_patches,

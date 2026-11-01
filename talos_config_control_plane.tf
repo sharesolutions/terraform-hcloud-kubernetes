@@ -289,7 +289,12 @@ data "talos_machine_configuration" "control_plane" {
     [for patch in local.talos_cloud_config_patches : yamlencode(patch)],
     var.per_node_network_config_enabled ? local.cloud_node_network_patches[each.key] : [],
     [for patch in local.control_plane_talos_config_patches[each.key] : yamlencode(patch)],
-    [yamlencode({ apiVersion = "v1alpha1", kind = "UnattendedInstallConfig", installer = { image = local.talos_control_plane_installer_image_url } })],
+    [yamlencode({
+      apiVersion   = "v1alpha1"
+      kind         = "UnattendedInstallConfig"
+      installer    = { image = local.talos_control_plane_installer_image_url }
+      provisioning = local.talos_cloud_install_provisioning
+    })],
     lookup(var.control_plane_extension_config, hcloud_server.control_plane[each.key].labels.nodepool, []),
     [for patch in var.control_plane_config_patches : yamlencode(patch)],
     [for patch in local.control_plane_nodepools_map[hcloud_server.control_plane[each.key].labels.nodepool].config_patches :

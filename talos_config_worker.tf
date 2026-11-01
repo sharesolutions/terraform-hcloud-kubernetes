@@ -86,9 +86,10 @@ data "talos_machine_configuration" "worker" {
         kind       = "UnattendedInstallConfig"
         "$patch"   = "delete"
         }) : yamlencode({
-        apiVersion = "v1alpha1"
-        kind       = "UnattendedInstallConfig"
-        installer  = { image = var.edge_runtime_image.installer }
+        apiVersion   = "v1alpha1"
+        kind         = "UnattendedInstallConfig"
+        installer    = { image = var.edge_runtime_image.installer }
+        provisioning = local.talos_cloud_install_provisioning
       })
     ] : [],
     [for patch in var.worker_config_patches : yamlencode(patch)],
